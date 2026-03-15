@@ -117,6 +117,7 @@ class GradientInformation(botorch.acquisition.AnalyticAcquisitionFunction):
         x = self.theta_i.view(-1, D)
         
         n = x.shape[0]
+        
 
         variances = []
         # torch.set_float32_matmul_precision("medium")
@@ -133,12 +134,26 @@ class GradientInformation(botorch.acquisition.AnalyticAcquisitionFunction):
         
             # variance_d = self.model._get_Kxx_dx2()-K_xX_dx @ K_XX_inv.to(torch.float64) @ K_xX_dx.transpose(1, 2) # look ahead gradient variance
             variance_d = -K_xX_dx @ K_XX_inv.to(torch.float64) @ K_xX_dx.transpose(1, 2)
-            variance_H = - ((K_xX_dxdx @ K_XX_inv).view(n,D*D, N) @ K_xX_dxdx.view(n,D*D, N).transpose(1,2))
-                    
-            row_idx = torch.arange(D).repeat(D)
-            col_idx = torch.arange(D).repeat_interleave(D)
+            # variance_H = - ((K_xX_dxdx @ K_XX_inv).view(n,D*D, N) @ K_xX_dxdx.view(n,D*D, N).transpose(1,2))
+            # row_idx = torch.arange(D).repeat(D)
+            # col_idx = torch.arange(D).repeat_interleave(D)
+            # trace_H = variance_H[0, row_idx * D + row_idx, col_idx * D + col_idx]
             
-            trace_H = variance_H[0, row_idx * D + row_idx, col_idx * D + col_idx]
+            # variance_H = torch.zeros(D,D,D,D)
+            # for i in range(D):
+            #     for j in range(D):
+            #         for k in range(N):
+            #             variance_H[i,j] += (K_xX_dxdx @ K_XX_inv).squeeze(0)[:,:,k][i,j]*K_xX_dxdx.squeeze(0).transpose(0,2)[k] 
+                    
+            A = torch.matmul(K_xX_dxdx, K_XX_inv).squeeze(0)   # (D, D, N)
+            B = K_xX_dxdx.squeeze(0).permute(2, 0, 1)          # (N, D, D)
+            variance_H = torch.tensordot(A, B, dims=([2], [0]))  # (D, D, D, D)
+            idx_i = torch.arange(D)
+            idx_j = torch.arange(D)
+            trace_H = -variance_H[idx_i[:, None], idx_j[None, :], idx_i[:, None], idx_j[None, :]].flatten()
+        
+            
+            
             #trace_H = self.trace_fourth_derivative + variance_H[0, row_idx * D + row_idx, col_idx * D + col_idx]
             variances.append(torch.trace(variance_d.view(D, D)).view(1) + torch.sum(trace_H).view(1))
 

@@ -7,7 +7,7 @@ Created on Tue Mar  4 19:59:01 2025
 """
 import sys
 import os
-sys.path.append(os.path.abspath('/home/tang.1856/NeST-BO/src'))
+sys.path.append(os.path.abspath('/fs/ess/PAS2983/jontwt/NeST-BO/src'))
 import torch
 from Acquisition_NeSTBO import GradientInformation, optimize_acqf_custom_bo
 from botorch.models.transforms import Standardize

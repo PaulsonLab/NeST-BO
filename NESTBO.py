@@ -31,15 +31,10 @@ bo_iter = 100
 soln = -210 # true minimum
 seed = 0
 
-torch.set_num_threads(8)
+torch.set_num_threads(4)
 torch.manual_seed(seed)
 params = torch.rand(1, dim).to(torch.float64)
    
 alg = main(fun, seed, dim, Ninit, lb, ub, params, bo_iter, delta, max_samples_per_iteration, epsilon_diff_acq_value, step)
 X, Y, regret = alg.exec_alg()
-
-
-plt.plot(np.array(regret) - soln)
-plt.ylabel('Regret')
-plt.xlabel('Iteration')
 
