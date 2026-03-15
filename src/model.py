@@ -15,7 +15,7 @@ from math import log, sqrt
 from gpytorch.constraints.constraints import GreaterThan
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
+
 MIN_INFERRED_NOISE_LEVEL = 1e-4
 SQRT2 = sqrt(2)
 SQRT3 = sqrt(3)
@@ -294,7 +294,7 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
         B = dk_dx.transpose(1,2).unsqueeze(1)
         second_term = (A*B).transpose(-1,-2)
        
-        return first_term+second_term
+        return first_term + second_term
     
     def posterior_derivative(self, x):
         """Computes the posterior of the derivative of the GP w.r.t. the given test
