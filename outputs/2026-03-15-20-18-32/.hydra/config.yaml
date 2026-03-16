@@ -1,0 +1,17 @@
+benchmark:
+  name: branin
+  n_tot: 200
+  n_init: 10
+  dim: 20
+  lb: -400
+  ub: 400
+  params: torch.rand(1, dim).to(torch.float64)
+  fn:
+    _target_: botorch.test_functions.synthetic.Griewank
+    negate: true
+    noise_std: 0.0
+  mujoco:
+    binary_path: null
+    apptainer_sif_path: null
+seed: null
+device: cuda

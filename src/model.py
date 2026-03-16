@@ -58,7 +58,7 @@ class ExactGPSEModel(gpytorch.models.ExactGP, botorch.models.gpytorch.GPyTorchMo
     ):
         """Inits GP model with data and a Gaussian likelihood."""
         likelihood = gpytorch.likelihoods.GaussianLikelihood(
-            noise_constraint=gpytorch.constraints.Interval(1e-4, 1e-1), noise_prior=noise_hyperprior
+            noise_constraint=gpytorch.constraints.Interval(1e-4, 1e-2), noise_prior=noise_hyperprior
         )
        
         if train_y is not None:
@@ -75,11 +75,12 @@ class ExactGPSEModel(gpytorch.models.ExactGP, botorch.models.gpytorch.GPyTorchMo
         self.covar_module = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(
                 ard_num_dims=ard_num_dims,
-                lengthscale_constraint = gpytorch.constraints.Interval(0.05, 10)
+                lengthscale_constraint = lengthscale_constraint
             ),
             outputscale_prior=outputscale_hyperprior,
             outputscale_constraint=outputscale_constraint,
         )
+       
         # Initialize lengthscale and outputscale to mean of priors.
         if lengthscale_prior is not None:
             self.covar_module.base_kernel.lengthscale = lengthscale_prior.mean
@@ -273,7 +274,8 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
         """
         
         lengthscale = self.covar_module.base_kernel.lengthscale.detach()
-        sigma_f = self.covar_module.outputscale.detach()
+        # sigma_f = self.covar_module.outputscale.detach()
+        sigma_f = 1
         return (
             torch.eye(self.D, device=lengthscale.device) / lengthscale ** 2
         ) * sigma_f

@@ -10,7 +10,7 @@ from typing import Tuple
 import torch
 import botorch
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
     """Acquisition function to sample points for gradient information.
@@ -22,6 +22,7 @@ class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
     def __init__(self, model):
         """Inits acquisition function with model."""
         super().__init__(model)
+        # self.device = device
 
     def update_theta_i(self, theta_i: torch.Tensor):
         """Updates the current parameters.
@@ -106,13 +107,13 @@ class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
         x = self.theta_i.view(-1, D)
         
         variances = []
-        for theta in thetas.to(device):
+        for theta in thetas.to(X.device):
             theta = theta.view(-1, D)
             
             X_look_head = torch.cat((X, theta))
             K_xX_dx = self._get_KxX_dx(x, X_look_head)
             K_xX_dxdx = self._get_KxX_dxdx(x, X_look_head)
-            K_XX_inv = torch.inverse((self.model.covar_module(X_look_head, X_look_head).evaluate()) + sigma_n * torch.eye(X_look_head.shape[0], device=device))
+            K_XX_inv = torch.inverse((self.model.covar_module(X_look_head, X_look_head).evaluate()) + sigma_n * torch.eye(X_look_head.shape[0], device=X.device))
            
             variance_d = -K_xX_dx @ K_XX_inv.to(torch.float64) @ K_xX_dx.transpose(1, 2)
                     
@@ -157,10 +158,10 @@ def optimize_acqf_custom_bo(
         q=1,  # Analytic acquisition function.
         num_restarts=num_restarts,
         raw_samples=raw_samples,  # Used for initialization heuristic.
-        options={"nonnegative": True, "batch_limit": 5},
+        options={"nonnegative": True, "batch_limit": 5, "maxiter":300},
         return_best_only=True,
         sequential=False,
     )
     # Observe new values.
-    new_x = candidates.detach().to(device)
+    new_x = candidates.detach()
     return new_x, acq_value
