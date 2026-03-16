@@ -7,7 +7,9 @@ Created on Tue Mar  4 19:59:01 2025
 """
 import sys
 import os
-from botorch.test_functions.synthetic import Griewank
+import logging
+from collections import OrderedDict
+from omegaconf import DictConfig, OmegaConf
 sys.path.append(os.path.abspath('/fs/ess/PAS2983/jontwt/NeST-BO/src'))
 import torch
 from Acquisition_NeSTBO import NewtonInformation, optimize_acqf_custom_bo
@@ -16,12 +18,16 @@ from model import DerivativeExactGPSEModel
 import gpytorch
 import botorch 
 import hydra
+import tqdm as tqdm
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.float64
 
 class main():
     
-    def __init__(self, config):
+    def __init__(self, config: DictConfig) -> None:
+        # Resolve configuration
+        OmegaConf.resolve(config)
+        logging.info("\n" + OmegaConf.to_yaml(config))
         
         self.seed = config.seed
         self.device = config.device
@@ -32,10 +38,11 @@ class main():
         self.dim = config.benchmark.dim
         self.lb = config.benchmark.lb
         self.ub = config.benchmark.ub
+        self.N_init = config.benchmark.N_init
         if config.benchmark.params.random:
             torch.manual_seed(self.seed)
             self.params = torch.rand(self.dim, dtype=dtype, device=self.device).unsqueeze(0)
-        self.train_X = torch.quasirandom.SobolEngine(dimension=self.dim,  scramble=True, seed=self.seed).draw(config.benchmark.N_init).to(dtype).to(self.device)
+        self.train_X = torch.quasirandom.SobolEngine(dimension=self.dim,  scramble=True, seed=self.seed).draw(self.N_init).to(dtype).to(self.device)
         self.train_X = torch.cat((self.params, self.train_X))    
         self.train_Y = self.fun(self.lb+(self.ub-self.lb)*self.train_X).detach().to(dtype).to(self.device)
     
@@ -78,11 +85,25 @@ class main():
         self.params = self.params + s*d    
         
     def exec_alg(self):
+        
+        
         regret_y = [float(min(self.train_Y))]
+        
+        y_min: float = self.train_Y.min().item()
+
+        # Construct iterator for BO loop
+        tqdm_log_list = ["y_min"]
+        pbar = tqdm.tqdm(
+            initial=1,
+            total=self.T,
+            desc="# function evaluation",
+            bar_format="{desc}: {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
+            disable=(not len(tqdm_log_list)),
+        )
             
         for bo in range(self.T):
             
-            print('Outer loop iter:', bo)
+            # print('Outer loop iter:', bo)
             bounds = torch.tensor([[-self.delta], [self.delta]]).to(self.device) + self.params
             bounds[bounds<0] = 0
             bounds[bounds>1] = 1
@@ -106,7 +127,7 @@ class main():
             except:
                 print('cant fit GP')
                 
-            print('GP fitted lscale=',gp.covar_module.base_kernel.lengthscale[0])
+            # print('GP fitted lscale=',gp.covar_module.base_kernel.lengthscale[0])
             
             gp.posterior(
                 self.params
@@ -118,19 +139,23 @@ class main():
             # inner loop for NeST-BO 
             
             for i in range(self.M):
-                print('Inner loop iter:', i)
+                # print('Inner loop iter:', i)
                 new_x, acq_value = optimize_acqf_custom_bo(acquisition_fcn, bounds, q = 1, num_restarts = 5, raw_samples = 20)
                 new_y = self.fun(self.lb + (self.ub - self.lb) *new_x).detach().to(torch.float64).to(self.device)
                     
                 self.train_X = torch.cat((new_x, self.train_X))
                 self.train_Y = torch.cat((new_y, self.train_Y))
                 regret_y.append(float(min(self.train_Y)))
-                if len(regret_y)>=self.T:
-                    break
-                
+                pbar.update(1)
                 gp.append_train_data(new_x, new_y)
                 gp.posterior(self.params)
                 acquisition_fcn.update_K_xX_dx()
+                
+                if len(regret_y)>=self.T:
+                    break
+            
+            if len(regret_y)>=self.T:
+                break
             
             # train GP
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(
@@ -150,7 +175,7 @@ class main():
             
             # IsPD or not
             if self.is_positive_semi_definite_eigen(mean_H[0]):
-                print('PSD!')
+                # print('PSD!')
                 self.move_Newton(gp, mean_H, mean_J)
             else:    
                 self.move_GD(gp, mean_J)
@@ -166,10 +191,30 @@ class main():
                  
             regret_y.append(float(min(self.train_Y)))
                    
-            print('min obj value =', regret_y[-1])
-           
+            # print('min obj value =', regret_y[-1])
+                   
+            with torch.no_grad():
+                # See if we have a new best observation
+                y_curr = self.train_Y.min().item()
+                
+                if y_curr < y_min:
+                    y_min = y_curr
+
+                # Update progress bar
+                iter_stats = OrderedDict(
+                    y_min=y_min,
+                    y_curr=y_curr,
+                )
+                pbar.set_postfix(**{stat: iter_stats.get(stat, None) for stat in tqdm_log_list})
+
+            pbar.update(1)
+            
             if len(regret_y)>=self.T:
                 break
+
+        pbar.close()
+
+        logging.info(f"min obj value: {y_min}")
             
         return self.train_X, self.train_Y, regret_y
 

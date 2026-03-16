@@ -22,7 +22,7 @@ hydra:
 
 benchmark:  # see subconfigs for benchmark-specific options
   n_tot: ???  # Total number of points to evaluate function on
-  n_init: ???  # Number of initial points to sample
+  N_init: ???  # Number of initial points to sample
   mujoco:
     binary_path: null
     apptainer_sif_path: null
