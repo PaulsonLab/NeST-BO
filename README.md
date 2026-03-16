@@ -2,6 +2,8 @@
 
 This repository contains the code to reproduce the NeST-BO and NeST-BO-sub algorithms proposed in the paper _NeST-BO: Fast Local Bayesian Optimization via Newton-Step Targeting of Gradient and Hessian Information_. 
 
+NeST-BO has been published as a conference paper in AISTATS 2026.
+
 ## Running Experiments
 
 Experiments can be run using the `main.py` script. You must specify a benchmark to run.
