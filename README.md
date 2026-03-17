@@ -4,6 +4,11 @@ This repository contains the code to reproduce the NeST-BO and NeST-BO-sub algor
 
 NeST-BO has been published as a conference paper in AISTATS 2026.
 
+# Installation
+```sh
+pip install -r requirements.txt
+```
+
 ## Running Experiments
 
 Experiments can be run using the `main_NeSTBO.py` and `main_NeSTBO_sub.py` script. You must specify a benchmark to run the algorithms.
