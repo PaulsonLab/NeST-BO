@@ -2,7 +2,7 @@ defaults:
   - benchmark: ???
   - _self_
 
-seed: 1
+seed: 0
 device: "cuda"
 
 hydra:

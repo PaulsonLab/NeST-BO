@@ -1,0 +1,18 @@
+name: Rosenbrock_Dummy
+n_tot: 300
+N_init: 10
+delta: 0.2
+dim: 1000
+dim_true: 30
+target_dim_init: 4
+lb: -5
+ub: 5
+params:
+  random: true
+  center: False
+  init: null
+
+fn:
+  _target_: src.benchmark.Rosenbrock_dummy.Rosenbrock_Dummy
+  dim_true: ${..dim_true}
+  negate: False  # Negate the function to turn it into a minimization problem

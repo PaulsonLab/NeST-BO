@@ -5,14 +5,14 @@ Created on Tue Mar  4 19:59:01 2025
 
 @author: tang.1856
 """
-import sys
-import os
+# import sys
+# import os
 import logging
 from collections import OrderedDict
 from omegaconf import DictConfig, OmegaConf
-sys.path.append(os.path.abspath('/fs/ess/PAS2983/jontwt/NeST-BO/src'))
+# sys.path.append(os.path.abspath('/fs/ess/PAS2983/jontwt/NeST-BO/src'))
 import torch
-from Acquisition_NeSTBO import NewtonInformation, optimize_acqf_custom_bo
+from src.Acquisition_NeSTBO import NewtonInformation, optimize_acqf_custom_bo
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from model import DerivativeExactGPSEModel
 import gpytorch
@@ -34,14 +34,22 @@ class main():
         self.T = config.benchmark.n_tot
         self.delta = config.benchmark.delta
         self.M = config.benchmark.M
-        self.fun = hydra.utils.instantiate(config.benchmark.fn).to(dtype=dtype, device=self.device)
+        self.fun = hydra.utils.instantiate(config.benchmark.fn)
+        try:
+            self.fun = self.fun.to(dtype).to(self.device)
+        except:
+            None
         self.dim = config.benchmark.dim
-        self.lb = config.benchmark.lb
-        self.ub = config.benchmark.ub
+        self.lb = torch.tensor(config.benchmark.lb).to(dtype).to(self.device)
+        self.ub = torch.tensor(config.benchmark.ub).to(dtype).to(self.device)
         self.N_init = config.benchmark.N_init
         if config.benchmark.params.random:
             torch.manual_seed(self.seed)
             self.params = torch.rand(self.dim, dtype=dtype, device=self.device).unsqueeze(0)
+        elif config.benchmark.params.center:
+            self.params = torch.tensor([0.5]*self.dim).unsqueeze(0).to(dtype).to(self.device)
+        else:
+            self.params = torch.tensor([config.benchmark.params.init], dtype=dtype, device=self.device)
         self.train_X = torch.quasirandom.SobolEngine(dimension=self.dim,  scramble=True, seed=self.seed).draw(self.N_init).to(dtype).to(self.device)
         self.train_X = torch.cat((self.params, self.train_X))    
         self.train_Y = self.fun(self.lb+(self.ub-self.lb)*self.train_X).detach().to(dtype).to(self.device)
@@ -141,7 +149,7 @@ class main():
             for i in range(self.M):
                 # print('Inner loop iter:', i)
                 new_x, acq_value = optimize_acqf_custom_bo(acquisition_fcn, bounds, q = 1, num_restarts = 5, raw_samples = 20)
-                new_y = self.fun(self.lb + (self.ub - self.lb) *new_x).detach().to(torch.float64).to(self.device)
+                new_y = self.fun(self.lb + (self.ub - self.lb) *new_x).detach().to(dtype).to(self.device)
                     
                 self.train_X = torch.cat((new_x, self.train_X))
                 self.train_Y = torch.cat((new_y, self.train_Y))
@@ -184,7 +192,7 @@ class main():
             self.params[self.params>1] = 1
             
             
-            Y_next = torch.cat([self.fun(self.lb + (self.ub - self.lb) *self.params)]).detach().to(torch.float64)   
+            Y_next = torch.cat([self.fun(self.lb + (self.ub - self.lb) *self.params)]).detach().to(dtype).to(self.device)  
             
             self.train_X = torch.cat((self.params, self.train_X))
             self.train_Y = torch.cat((Y_next, self.train_Y))  

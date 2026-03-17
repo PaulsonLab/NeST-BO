@@ -1,0 +1,23 @@
+[2026-03-16 17:04:38,092][root][INFO] - 
+benchmark:
+  name: Swimmer
+  n_tot: 300
+  N_init: 10
+  delta: 0.5
+  dim: 16
+  M: 16
+  lb: -10
+  ub: 10
+  params:
+    random: false
+    center: true
+    init: null
+  fn:
+    _target_: src.benchmark.RL_fun_Swimmer.RL_fun
+    seed: 0
+  mujoco:
+    binary_path: null
+    apptainer_sif_path: null
+seed: 0
+device: cuda
+

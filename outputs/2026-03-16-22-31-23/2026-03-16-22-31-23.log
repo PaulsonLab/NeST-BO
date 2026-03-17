@@ -1,0 +1,25 @@
+[2026-03-16 22:31:23,612][root][INFO] - 
+benchmark:
+  name: Ackley_Dummy
+  n_tot: 300
+  N_init: 10
+  delta: 0.2
+  dim: 1000
+  dim_true: 30
+  target_dim_init: 4
+  lb: -5
+  ub: 5
+  params:
+    random: true
+    center: false
+    init: null
+  fn:
+    _target_: src.benchmark.Ackley_dummy.Ackley_Dummy
+    dim_true: 30
+    negate: false
+  mujoco:
+    binary_path: null
+    apptainer_sif_path: null
+seed: 0
+device: cuda
+

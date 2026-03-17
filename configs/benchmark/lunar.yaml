@@ -1,0 +1,16 @@
+name: Lunar
+n_tot: 300
+N_init: 10
+delta: 0.2
+dim: 12
+M: 12
+lb: 0
+ub: 2
+params:
+  random: False
+  center: true
+  init: null
+
+fn:
+  _target_: src.benchmark.RL_fun_Lunar.RL_fun
+

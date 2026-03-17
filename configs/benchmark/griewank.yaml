@@ -8,9 +8,10 @@ lb: -300
 ub: 300
 params:
   random: true
+  center: False
+  init: null
 
 fn:
   _target_: botorch.test_functions.synthetic.Griewank
   dim: ${..dim}
   negate: False  # Negate the function to turn it into a minimization problem
-  noise_std: 0.0  # Stdv of Gaussian noise to add to observations (to test optimization under noise)

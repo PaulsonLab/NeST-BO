@@ -1,0 +1,22 @@
+[2026-03-16 17:44:23,388][root][INFO] - 
+benchmark:
+  name: Leukemia
+  n_tot: 300
+  N_init: 10
+  delta: 0.2
+  dim: 7129
+  M: 60
+  lb: -1
+  ub: 1
+  params:
+    random: false
+    center: true
+    init: null
+  fn:
+    _target_: src.benchmark.Leukemia.Leukemia
+  mujoco:
+    binary_path: null
+    apptainer_sif_path: null
+seed: 0
+device: cuda
+

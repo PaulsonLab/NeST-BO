@@ -5,20 +5,89 @@ Created on Tue Mar  4 19:59:01 2025
 
 @author: tang.1856
 """
-import sys
-import os
-sys.path.append(os.path.abspath('/fs/ess/PAS2983/jontwt/NeST-BO/src'))
+# import sys
+# import os
+# sys.path.append(os.path.abspath('/fs/ess/PAS2983/jontwt/NeST-BO/src'))
+from dataclasses import dataclass
 import torch
-from Acquisition_NeSTBO import NewtonInformation, optimize_acqf_custom_bo
+from src.Acquisition_NeSTBO import NewtonInformation, optimize_acqf_custom_bo
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from model import DerivativeExactGPSEModel
 import gpytorch
 import botorch 
 import math
+import logging
+from collections import OrderedDict
+from omegaconf import DictConfig, OmegaConf
+import hydra
+import numpy as np
+import tqdm
 
 dtype = torch.float64
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def embedding_matrix(input_dim: int, target_dim: int, seed) -> torch.Tensor:
+    torch.manual_seed(seed)
+    if (
+        target_dim >= input_dim
+    ):  # return identity matrix if target size greater than input size
+        return torch.eye(input_dim, device=device, dtype=dtype)
+
+    input_dims_perm = (
+        torch.randperm(input_dim, device=device) + 1
+    )  # add 1 to indices for padding column in matrix
+
+    bins = torch.tensor_split(
+        input_dims_perm, target_dim
+    )  # split dims into almost equally-sized bins
+    bins = torch.nn.utils.rnn.pad_sequence(
+        bins, batch_first=True
+    )  # zero pad bins, the index 0 will be cut off later
+
+    mtrx = torch.zeros(
+        (target_dim, input_dim + 1), dtype=dtype, device=device
+    )  # add one extra column for padding
+    mtrx = mtrx.scatter_(
+        1,
+        bins,
+        2 * torch.randint(2, (target_dim, input_dim), dtype=dtype, device=device) - 1,
+    )  # fill mask with random +/- 1 at indices
+
+    return mtrx[:, 1:]  # cut off index zero as this corresponds to zero padding
+
+@dataclass
+class BaxusState:
+    dim: int
+    eval_budget: int
+    new_bins_on_split: int = 3
+    d_init: int = float("nan")  # Note: post-initialized
+    target_dim: int = float("nan")  # Note: post-initialized
+    n_splits: int = float("nan")  # Note: post-initialized
+    length: float = 0.8
+    length_init: float = 0.8
+    length_min: float = 0.5**7
+    length_max: float = 1.6
+    failure_counter: int = 0
+    success_counter: int = 0
+    success_tolerance: int = 3
+    best_value: float = float("inf")
+    restart_triggered: bool = False
+    
+
+    def __post_init__(self):
+        n_splits = round(math.log(self.dim, self.new_bins_on_split + 1))
+        # self.d_init = 1 + np.argmin(
+        #     np.abs(
+        #         (1 + np.arange(self.new_bins_on_split))
+        #         * (1 + self.new_bins_on_split) ** n_splits
+        #         - self.dim
+        #     )
+        # )
+        # self.d_init = max(self.d_init, self.target_dim_init)
+        # self.d_init = max(self.target_dim_init, self.d_init)
+        self.target_dim = self.d_init
+        self.n_splits = n_splits   
+        
 def update_state(state, Y_next):
     if -max(Y_next) > -state.best_value:
         state.success_counter += 1
@@ -87,22 +156,41 @@ def increase_embedding_and_observations(
 
 class main():
     
-    def __init__(self, fun, seed, dim, Ninit, lb, ub, params, bo_iter, delta, M, S, state):
-        self.fun = fun
-        self.dim = dim
-        self.lb = lb
-        self.ub = ub
-        self.params = params.to(device)
-        self.bo_iter = bo_iter
-        self.delta = delta
-        self.M = M
-        self.seed = seed
-        self.S = S
-        self.state = state
-        self.train_X = -1+2*torch.quasirandom.SobolEngine(dimension=dim,  scramble=True, seed=seed).draw(Ninit).to(torch.float64).to(device)
-        self.train_X = torch.cat((self.params, self.train_X))       
-        train_X_inverse = (self.train_X @ self.S + 1)/2
-        self.train_Y = fun(lb+(ub-lb)*(train_X_inverse)).detach().to(torch.float64).to(device)
+    def __init__(self, config: DictConfig) -> None:
+            
+        OmegaConf.resolve(config)
+        logging.info("\n" + OmegaConf.to_yaml(config))
+    
+        self.seed = config.seed
+        self.device = config.device
+        self.T = config.benchmark.n_tot
+        self.delta = config.benchmark.delta
+        self.fun = hydra.utils.instantiate(config.benchmark.fn)
+        try:
+            self.fun = self.fun.to(dtype).to(self.device)
+        except:
+            None
+        self.dim = config.benchmark.dim
+        self.lb = torch.tensor(config.benchmark.lb).to(dtype).to(self.device)
+        self.ub = torch.tensor(config.benchmark.ub).to(dtype).to(self.device)
+        self.N_init = config.benchmark.N_init
+        self.target_dim_init = config.benchmark.target_dim_init
+        self.state = BaxusState(dim=self.dim, eval_budget=self.T, d_init = self.target_dim_init)
+        
+        self.M = int(self.state.target_dim)
+        self.S = embedding_matrix(input_dim=self.dim, target_dim=self.state.target_dim, seed = self.seed).to(dtype).to(self.device)
+        
+        if config.benchmark.params.random:
+            torch.manual_seed(self.seed)
+            self.params = (-1+2*torch.rand(self.state.target_dim, dtype=dtype, device=self.device)).unsqueeze(0)
+        elif config.benchmark.params.center:
+            self.params = torch.tensor([0.0]*self.dim).unsqueeze(0).to(dtype).to(self.device)
+        else:
+            self.params = torch.tensor([config.benchmark.params.init], dtype=dtype, device=self.device)
+        self.train_X = -1+2*torch.quasirandom.SobolEngine(dimension=self.state.target_dim,  scramble=True, seed=self.seed).draw(self.N_init).to(dtype).to(self.device)
+        self.train_X = torch.cat((self.params, self.train_X))    
+        train_X_inverse = ((self.train_X @ self.S + 1)/2).to(dtype).to(self.device)
+        self.train_Y = self.fun(self.lb+(self.ub-self.lb)*train_X_inverse).detach().to(dtype).to(self.device)
        
     
     def is_positive_semi_definite_eigen(self, A):
@@ -145,20 +233,28 @@ class main():
         
         
     def exec_alg(self):
-        regret_y = []
-       
-        regret_y.append(float(min(self.train_Y)))
+        regret_y = [float(min(self.train_Y))]
+              
+        y_min: float = self.train_Y.min().item()
+
+        # Construct iterator for BO loop
+        tqdm_log_list = ["y_min"]
+        pbar = tqdm.tqdm(
+            initial=1,
+            total=self.T,
+            desc="# function evaluation",
+            bar_format="{desc}: {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
+            disable=(not len(tqdm_log_list)),
+        )
         
-        for bo in range(self.bo_iter):
+        for bo in range(self.T):
            
-                
-            print('Outler loop iter:', bo)
             bounds = torch.tensor([[-self.delta], [self.delta]]).to(device) + self.params
             bounds[bounds<-1] = -1
             bounds[bounds>1] = 1
             bounds = bounds.to(device)
             
-            gp = DerivativeExactGPSEModel(self.dim, ard_num_dims=self.dim)
+            gp = DerivativeExactGPSEModel(self.state.target_dim, ard_num_dims=self.state.target_dim)
             gp = gp.to(device)
             gp.append_train_data(self.train_X, self.train_Y)
             
@@ -176,7 +272,6 @@ class main():
             except:
                 print('cant fit GP')
                 
-            print('lscale=',gp.covar_module.base_kernel.lengthscale)
             gp.posterior(
                 self.params
             )  # Call this to update prediction strategy of GPyTorch.
@@ -186,21 +281,23 @@ class main():
             
             # inner loop for NeST-BO-sub         
             for i in range(self.M):
-                print('Inner loop iter:', i)
                 new_x, acq_value = optimize_acqf_custom_bo(acquisition_fcn, bounds, q=1, num_restarts = 5, raw_samples = 20)
                 new_x_inverse = (new_x @ self.S + 1)/2
-                new_y = self.fun(self.lb + (self.ub - self.lb) *new_x_inverse).detach().to(torch.float64).to(device)
+                new_y = self.fun(self.lb + (self.ub - self.lb) *new_x_inverse).detach().to(dtype).to(self.device)
                 
                 self.train_X = torch.cat((new_x, self.train_X))
                 self.train_Y = torch.cat((new_y, self.train_Y))
                 regret_y.append(float(min(self.train_Y)))
-                if len(regret_y)>=self.bo_iter:
+                pbar.update(1)
+                if len(regret_y)>=self.T:
                     break
                 
                 gp.append_train_data(new_x, new_y)
                 gp.posterior(self.params)
                 acquisition_fcn.update_K_xX_dx()
                 
+            if len(regret_y)>=self.T:
+                break    
             
             # train GP
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(
@@ -228,17 +325,31 @@ class main():
             self.params[self.params>1] = 1
             
             params_inverse = (self.params @ self.S + 1)/2
-            Y_next = torch.cat([self.fun(self.lb + (self.ub - self.lb) *params_inverse)]).detach().to(torch.float64)   
+            Y_next = torch.cat([self.fun(self.lb + (self.ub - self.lb) *params_inverse)]).detach().to(dtype).to(self.device)
              
             self.train_X = torch.cat((self.params, self.train_X))
             self.train_Y = torch.cat((Y_next, self.train_Y))  
             self.state = update_state(state=self.state, Y_next=min(self.train_Y[0:i+2]).unsqueeze(0))
             
             regret_y.append(float(min(self.train_Y)))
-          
-            print('min obj value =', regret_y[-1])
-           
-            if len(regret_y)>=self.bo_iter:
+            
+            with torch.no_grad():
+                # See if we have a new best observation
+                y_curr = self.train_Y.min().item()
+                
+                if y_curr < y_min:
+                    y_min = y_curr
+
+                # Update progress bar
+                iter_stats = OrderedDict(
+                    y_min=y_min,
+                    y_curr=y_curr,
+                )
+                pbar.set_postfix(**{stat: iter_stats.get(stat, None) for stat in tqdm_log_list})
+
+            pbar.update(1)
+            
+            if len(regret_y)>=self.T:
                 break
             
             if self.state.failure_counter == 10:
@@ -250,10 +361,26 @@ class main():
                 self.params = self.train_X[0].unsqueeze(0)
                 print(f"new dimensionality: {len(self.S)}")
                 self.state.target_dim = len(self.S)
-                self.dim = len(self.S)
-                self.max_samples_per_iteration = self.dim
+                self.M = self.state.target_dim
                 self.state.failure_counter = 0
                 self.state.success_counter = 0
             
             
         return self.train_X, self.train_Y, regret_y
+    
+# def __init__(self, fun, seed, dim, Ninit, lb, ub, params, bo_iter, delta, M, S, state):    
+# self.fun = fun
+# self.dim = dim
+# self.lb = lb
+# self.ub = ub
+# self.params = params.to(device)
+# self.bo_iter = bo_iter
+# self.delta = delta
+# self.M = M
+# self.seed = seed
+# self.S = S
+# self.state = state
+# self.train_X = -1+2*torch.quasirandom.SobolEngine(dimension=dim,  scramble=True, seed=seed).draw(Ninit).to(torch.float64).to(device)
+# self.train_X = torch.cat((self.params, self.train_X))       
+# train_X_inverse = (self.train_X @ self.S + 1)/2
+# self.train_Y = fun(lb+(ub-lb)*(train_X_inverse)).detach().to(torch.float64).to(device)

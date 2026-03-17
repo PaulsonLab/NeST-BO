@@ -1,0 +1,48 @@
+benchmark:
+  name: Pusher
+  n_tot: 300
+  N_init: 10
+  delta: 0.5
+  dim: 14
+  M: 14
+  lb:
+  - -5.0
+  - -5.0
+  - -10.0
+  - -10.0
+  - 2.0
+  - 0.0
+  - -5.0
+  - -5.0
+  - -10.0
+  - -10.0
+  - 2.0
+  - 0.0
+  - -5.0
+  - -5.0
+  ub:
+  - 5.0
+  - 5.0
+  - 10.0
+  - 10.0
+  - 30.0
+  - 6.283185307179586
+  - 5.0
+  - 5.0
+  - 10.0
+  - 10.0
+  - 30.0
+  - 6.283185307179586
+  - 5.0
+  - 5.0
+  params:
+    random: false
+    center: true
+    init: null
+  fn:
+    _target_: src.benchmark.push_function.Push_RL
+  mujoco:
+    binary_path: null
+    apptainer_sif_path: null
+seed: 1
+device: cuda

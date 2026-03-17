@@ -1,0 +1,22 @@
+[2026-03-16 15:17:27,911][root][INFO] - 
+benchmark:
+  name: Sphere
+  n_tot: 23
+  N_init: 10
+  delta: 0.5
+  dim: 5
+  M: 5
+  lb: -5
+  ub: 5
+  params:
+    random: true
+  fn:
+    _target_: benchmark.Sphere.Sphere
+    dim: 5
+    negate: false
+  mujoco:
+    binary_path: null
+    apptainer_sif_path: null
+seed: 1
+device: cuda
+
