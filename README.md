@@ -6,7 +6,7 @@ NeST-BO has been published as a conference paper in AISTATS 2026.
 
 ## Running Experiments
 
-Experiments can be run using the `main_NeSTBO.py` and `main_NeSTBO_sub.py` script. You must specify a benchmark to run.
+Experiments can be run using the `main_NeSTBO.py` and `main_NeSTBO_sub.py` script. You must specify a benchmark to run the algorithms.
 
 **Basic Command**
 ```
