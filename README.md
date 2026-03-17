@@ -16,7 +16,15 @@ python main_NeSTBO_sub.py benchmark=<benchmark_name>
 
 *   To see a list of available benchmarks, run `python main_NeSTBO.py`.
 *   Adding `seed=<number>` is recommended for reproducibility.
-  
+
+**Configuration Overrides**
+All default settings are stored in configs/default.yaml. Since this project uses [Hydra](https://hydra.cc/), you have the flexibility to modify these values on the fly via the command line without editing the file.
+
+```
+# Example: override the evaluation budget for the ackley benchmark
+python main_NeSTBO.py benchmark=ackley seed=0 benchmark.n_tot=1000
+```
+
 ## Citation
 If you use this code in your research, please cite the following paper:
 
