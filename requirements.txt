@@ -1,0 +1,6 @@
+botorch==0.16.1
+torch == 2.6.0
+gpytorch == 1.14.3
+LassoBench @ git+https://github.com/DonneyF/LassoBench.git@c8addba
+hydra-core >= 1.3
+gymnasium == 1.1.0
