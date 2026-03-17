@@ -10,7 +10,6 @@ from typing import Tuple
 import torch
 import botorch
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
     """Acquisition function to sample points for gradient information.

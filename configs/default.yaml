@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 seed: 0
-device: "cuda"
+device: "cpu"
 
 hydra:
   job:

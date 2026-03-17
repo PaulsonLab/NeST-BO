@@ -14,8 +14,6 @@ from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 from math import log, sqrt
 from gpytorch.constraints.constraints import GreaterThan
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 MIN_INFERRED_NOISE_LEVEL = 1e-4
 SQRT2 = sqrt(2)
 SQRT3 = sqrt(3)
@@ -164,8 +162,8 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
         self.N_max = N_max
         self.D = D
         self.N = 0
-        self.train_xs = train_x_init.to(device)
-        self.train_ys = train_y_init.to(device)
+        self.train_xs = train_x_init
+        self.train_ys = train_y_init
         if normalize is None:
             normalize = lambda params: params
         self.normalize = normalize
@@ -183,8 +181,8 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
             train_x: (1 x D) New training features.
             train_y: (1 x 1) New training target.
         """
-        self.train_xs = torch.cat([self.unnormalize(train_x), self.train_xs])
-        self.train_ys = torch.cat([train_y, self.train_ys])
+        self.train_xs = torch.cat([self.unnormalize(train_x), self.train_xs.to(train_x.device)])
+        self.train_ys = torch.cat([train_y, self.train_ys.to(train_x.device)])
 
         if (self.N_max is not None) or (self.N_max != -1):
 
@@ -238,7 +236,7 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
         X = self.train_inputs[0]
         sigma_n = self.likelihood.noise_covar.noise.detach()
         return torch.inverse(
-            self.covar_module(X).evaluate() + torch.eye(X.shape[0]).to(device) * sigma_n
+            self.covar_module(X).evaluate() + torch.eye(X.shape[0]).to(X.device) * sigma_n
         )
 
     def _get_KxX_dx(self, x):

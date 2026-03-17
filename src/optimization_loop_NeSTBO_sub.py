@@ -72,18 +72,18 @@ class BaxusState:
     success_tolerance: int = 3
     best_value: float = float("inf")
     restart_triggered: bool = False
-    
+    target_dim_init: int = float("nan")
 
     def __post_init__(self):
         n_splits = round(math.log(self.dim, self.new_bins_on_split + 1))
-        # self.d_init = 1 + np.argmin(
-        #     np.abs(
-        #         (1 + np.arange(self.new_bins_on_split))
-        #         * (1 + self.new_bins_on_split) ** n_splits
-        #         - self.dim
-        #     )
-        # )
-        # self.d_init = max(self.d_init, self.target_dim_init)
+        self.d_init = 1 + np.argmin(
+            np.abs(
+                (1 + np.arange(self.new_bins_on_split))
+                * (1 + self.new_bins_on_split) ** n_splits
+                - self.dim
+            )
+        )
+        self.d_init = max(self.d_init, self.target_dim_init)
         # self.d_init = max(self.target_dim_init, self.d_init)
         self.target_dim = self.d_init
         self.n_splits = n_splits   
@@ -175,7 +175,7 @@ class main():
         self.ub = torch.tensor(config.benchmark.ub).to(dtype).to(self.device)
         self.N_init = config.benchmark.N_init
         self.target_dim_init = config.benchmark.target_dim_init
-        self.state = BaxusState(dim=self.dim, eval_budget=self.T, d_init = self.target_dim_init)
+        self.state = BaxusState(dim=self.dim, eval_budget=self.T, target_dim_init = self.target_dim_init)
         
         self.M = int(self.state.target_dim)
         self.S = embedding_matrix(input_dim=self.dim, target_dim=self.state.target_dim, seed = self.seed).to(dtype).to(self.device)
@@ -184,7 +184,7 @@ class main():
             torch.manual_seed(self.seed)
             self.params = (-1+2*torch.rand(self.state.target_dim, dtype=dtype, device=self.device)).unsqueeze(0)
         elif config.benchmark.params.center:
-            self.params = torch.tensor([0.0]*self.dim).unsqueeze(0).to(dtype).to(self.device)
+            self.params = torch.tensor([0.0]*self.state.target_dim).unsqueeze(0).to(dtype).to(self.device)
         else:
             self.params = torch.tensor([config.benchmark.params.init], dtype=dtype, device=self.device)
         self.train_X = -1+2*torch.quasirandom.SobolEngine(dimension=self.state.target_dim,  scramble=True, seed=self.seed).draw(self.N_init).to(dtype).to(self.device)

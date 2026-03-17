@@ -4,6 +4,7 @@ N_init: 10
 delta: 0.2
 dim: 7129
 M: 60
+target_dim_init: 20
 lb: -1
 ub: 1
 params:

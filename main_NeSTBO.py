@@ -6,7 +6,7 @@ import hydra
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
-@hydra.main(version_base="1.3", config_path="configs", config_name="default_NeSTBO")
+@hydra.main(version_base="1.3", config_path="configs", config_name="default")
 def main(config: DictConfig) -> None:
     """
     Hydra entry point
@@ -32,6 +32,6 @@ def main(config: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    import sys
-    sys.argv.append("benchmark=ackley")
+    # import sys
+    # sys.argv.append("benchmark=ackley")
     main()
