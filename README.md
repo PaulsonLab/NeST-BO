@@ -1,4 +1,4 @@
-# [AISTATS 2026] NeST-BO: Fast Local Bayesian Optimization via Newton-Step Targeting of Gradient and Hessian Information
+# NeST-BO: Fast Local Bayesian Optimization via Newton-Step Targeting of Gradient and Hessian Information
 
 This repository contains the code to reproduce the NeST-BO and NeST-BO-sub algorithms proposed in the paper _NeST-BO: Fast Local Bayesian Optimization via Newton-Step Targeting of Gradient and Hessian Information_. 
 
