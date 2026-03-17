@@ -1,7 +1,7 @@
 name: Swimmer
 n_tot: 300
 N_init: 10
-delta: 0.5
+delta: 0.2
 dim: 16
 M: 16
 target_dim_init: 10

@@ -1,5 +1,5 @@
 name: Ackley_Dummy
-n_tot: 300
+n_tot: 200
 N_init: 10
 delta: 0.2
 dim: 1000

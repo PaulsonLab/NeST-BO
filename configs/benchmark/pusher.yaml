@@ -1,7 +1,7 @@
 name: Pusher
 n_tot: 300
 N_init: 10
-delta: 0.5
+delta: 0.2
 dim: 14
 M: 14
 target_dim_init: 1

@@ -1,9 +1,9 @@
 name: Griewank
-n_tot: 20
+n_tot: 500
 N_init: 10
-delta: 0.5
-dim: 5
-M: 3
+delta: 0.2
+dim: 20
+M: 20
 lb: -300
 ub: 300
 params:
