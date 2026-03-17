@@ -23,6 +23,7 @@ python main_NeSTBO_sub.py benchmark=<benchmark_name>
 *   Adding `seed=<number>` is recommended for reproducibility.
 
 **Configuration Overrides**
+
 All default settings are stored in configs/default.yaml. Since this project uses [Hydra](https://hydra.cc/), you have the flexibility to modify these values on the fly via the command line without editing the file.
 
 ```
