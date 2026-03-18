@@ -139,8 +139,8 @@ class main():
             except:
                 print('cant fit GP')
                 
-            print('GP fitted lscale=',gp.covar_module.base_kernel.lengthscale[0])
-            print('GP fitted lscale=',gp.covar_module.outputscale)
+            # print('GP fitted lscale=',gp.covar_module.base_kernel.lengthscale[0])
+            # print('GP fitted output scale=',gp.covar_module.outputscale)
             
             gp.posterior(
                 self.params
