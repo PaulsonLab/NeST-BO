@@ -1,6 +1,6 @@
 name: Leukemia
 n_tot: 300
-N_init: 10
+N_init: 50
 delta: 0.2
 dim: 7129
 M: 60

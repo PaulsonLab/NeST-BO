@@ -1,0 +1,3 @@
+- benchmark=griewank
+- seed=1
+- benchmark=pusher

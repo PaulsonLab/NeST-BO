@@ -1,0 +1,24 @@
+[2026-03-17 13:19:18,819][root][INFO] - 
+benchmark:
+  name: Griewank
+  n_tot: 500
+  N_init: 10
+  delta: 0.2
+  dim: 20
+  M: 20
+  lb: -300
+  ub: 300
+  params:
+    random: true
+    center: false
+    init: null
+  fn:
+    _target_: botorch.test_functions.synthetic.Griewank
+    dim: 20
+    negate: false
+  mujoco:
+    binary_path: null
+    apptainer_sif_path: null
+seed: 0
+device: cpu
+

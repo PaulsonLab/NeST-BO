@@ -6,9 +6,8 @@ Created on Wed Mar 26 19:56:37 2025
 @author: tang.1856
 """
 
-import gymnasium as gym
+
 import torch
-import numpy as np
 from LassoBench import LassoBench
 
 class Leukemia():
@@ -29,7 +28,9 @@ class Leukemia():
             return y
     
     
-if __name__ == '__main__':    
-    fun = RL_fun()
+if __name__ == '__main__': 
+    lb = -1
+    ub = 1
+    fun = Leukemia()
     x = torch.rand(2, 7129).to(torch.float64)
-    y = fun(x)
+    y = fun(lb+(ub-lb)*x)

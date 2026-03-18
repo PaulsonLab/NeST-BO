@@ -1,6 +1,6 @@
 name: Rover
 n_tot: 800
-N_init: 10
+N_init: 200
 delta: 0.2
 dim: 60
 M: 60

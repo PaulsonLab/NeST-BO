@@ -20,6 +20,8 @@ class Ackley_Dummy():
     
     
 if __name__ == '__main__':    
-    fun =Ackley_Dummy(dim_true = 3)
+    lb = -5
+    ub = 5
+    fun = Ackley_Dummy(dim_true = 3)
     x = torch.rand(2, 16)
-    fun(x)
+    y = fun(lb+(ub-lb)*x)

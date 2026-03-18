@@ -1,5 +1,5 @@
 name: Sphere
-n_tot: 300
+n_tot: 500
 N_init: 10
 delta: 0.2
 dim: 20

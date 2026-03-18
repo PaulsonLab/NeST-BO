@@ -56,7 +56,7 @@ class ExactGPSEModel(gpytorch.models.ExactGP, botorch.models.gpytorch.GPyTorchMo
     ):
         """Inits GP model with data and a Gaussian likelihood."""
         likelihood = gpytorch.likelihoods.GaussianLikelihood(
-            noise_constraint=gpytorch.constraints.Interval(1e-4, 1e-2), noise_prior=noise_hyperprior
+            noise_constraint=noise_constraint, noise_prior=noise_hyperprior
         )
        
         if train_y is not None:
@@ -69,16 +69,21 @@ class ExactGPSEModel(gpytorch.models.ExactGP, botorch.models.gpytorch.GPyTorchMo
             self.mean_module.initialize(constant=prior_mean)
             self.mean_module.constant.requires_grad = False
             
-        # lengthscale_prior = LogNormalPrior(loc=SQRT2 + log(ard_num_dims) * 0.5, scale=SQRT3)
+       
         self.covar_module = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(
                 ard_num_dims=ard_num_dims,
-                lengthscale_constraint = lengthscale_constraint
+                lengthscale_constraint = lengthscale_constraint,
+                lengthscale_prior = lengthscale_prior
             ),
             outputscale_prior=outputscale_hyperprior,
             outputscale_constraint=outputscale_constraint,
         )
-       
+        
+        ls = torch.ones_like(self.covar_module.base_kernel.lengthscale) * 0.6931
+        self.covar_module.base_kernel._set_lengthscale(ls)
+        # self.covar_module.outputscale = 0.6931
+                
         # Initialize lengthscale and outputscale to mean of priors.
         if lengthscale_prior is not None:
             self.covar_module.base_kernel.lengthscale = lengthscale_prior.mean

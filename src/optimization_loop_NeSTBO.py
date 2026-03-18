@@ -19,6 +19,7 @@ import gpytorch
 import botorch 
 import hydra
 import tqdm as tqdm
+from gpytorch.priors.torch_priors import GammaPrior
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.float64
 
@@ -34,6 +35,7 @@ class main():
         self.T = config.benchmark.n_tot
         self.delta = config.benchmark.delta
         self.M = config.benchmark.M
+        # self.N_max = config.benchmark.N_max
         self.fun = hydra.utils.instantiate(config.benchmark.fn)
         try:
             self.fun = self.fun.to(dtype).to(self.device)
@@ -77,7 +79,7 @@ class main():
             
         self.params = self.params + s*d
            
-    def move_GD(self, gp, mean_J, sigma = 0.1, s = 1,  beta = 0.5):
+    def move_GD(self, gp, mean_J, sigma = 0.1, s = 0.5,  beta = 0.5):
         
         # do the Armijo line search
         d = -(torch.nn.functional.normalize(mean_J)).detach() # descent direction
@@ -94,6 +96,8 @@ class main():
         
     def exec_alg(self):
         
+        lengthscale_constraint=gpytorch.constraints.Interval(0.005, 10)
+        outputscale_constraint=None
         
         regret_y = [float(min(self.train_Y))]
         
@@ -117,7 +121,7 @@ class main():
             bounds[bounds>1] = 1
             bounds = bounds.to(self.device)
             
-            gp = DerivativeExactGPSEModel(self.dim, ard_num_dims=self.dim)
+            gp = DerivativeExactGPSEModel(self.dim, ard_num_dims=self.dim, lengthscale_constraint=lengthscale_constraint, outputscale_constraint=outputscale_constraint)
             gp = gp.to(self.device)
             gp.append_train_data(self.train_X, self.train_Y)
             
@@ -135,7 +139,8 @@ class main():
             except:
                 print('cant fit GP')
                 
-            # print('GP fitted lscale=',gp.covar_module.base_kernel.lengthscale[0])
+            print('GP fitted lscale=',gp.covar_module.base_kernel.lengthscale[0])
+            print('GP fitted lscale=',gp.covar_module.outputscale)
             
             gp.posterior(
                 self.params

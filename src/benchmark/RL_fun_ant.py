@@ -60,8 +60,9 @@ class RL_fun():
         return torch.tensor(Reward_list).to(torch.float32)
     
     
-if __name__ == '__main__':    
+if __name__ == '__main__':
+    lb = -1
+    ub = 1    
     fun = RL_fun()
-    x = -1+2*torch.rand(1, 888)
-    # x = 0.5*torch.ones(102).unsqueeze(0)
-    reward = fun(x)
+    x = torch.rand(1, 888)
+    reward = fun(lb+(ub-lb)*x)

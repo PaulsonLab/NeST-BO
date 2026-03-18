@@ -1,6 +1,7 @@
 name: Pusher
 n_tot: 300
-N_init: 10
+N_init: 100
+N_max: 280
 delta: 0.2
 dim: 14
 M: 14

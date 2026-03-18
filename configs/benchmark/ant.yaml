@@ -1,6 +1,6 @@
 name: Ant
 n_tot: 300
-N_init: 10
+N_init: 20
 delta: 0.5
 dim: 888
 M: 16

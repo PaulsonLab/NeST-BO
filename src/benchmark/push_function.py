@@ -10,9 +10,6 @@ from src.benchmark.push_utils import b2WorldInterface, make_base, create_body, e
 import torch
 import numpy as np
 
-
-
-
 class PushReward:
     def __init__(self):
 
@@ -87,16 +84,19 @@ class Push_RL():
             reward_list.append(-f(x))
         return torch.tensor(reward_list)
         
-
-
-def main():
-    f = PushReward()
-    x = np.random.uniform(f.xmin, f.xmax)
-    # x = np.array(f.xmin) + (np.array(f.xmax)-np.array(f.xmin))*np.ones(14)*0.1
-    # x = f.xmin + (f.xmax - f.xmin)*0.2
-    x = np.array(f.xmin) + (np.array(f.xmax) - np.array(f.xmin))*x
-    print('Input = {}'.format(x))
-    print('Output = {}'.format(f(x)))
+# def main():
+#     f = PushReward()
+#     x = np.random.uniform(f.xmin, f.xmax)
+#     # x = np.array(f.xmin) + (np.array(f.xmax)-np.array(f.xmin))*np.ones(14)*0.1
+#     # x = f.xmin + (f.xmax - f.xmin)*0.2
+#     x = np.array(f.xmin) + (np.array(f.xmax) - np.array(f.xmin))*x
+#     print('Input = {}'.format(x))
+#     print('Output = {}'.format(f(x)))
     
 if __name__ == '__main__':
-    main()
+    # main()
+    lb = [-5.0, -5.0, -10.0, -10.0, 2.0, 0.0, -5.0, -5.0, -10.0, -10.0, 2.0, 0.0, -5.0, -5.0]
+    ub = [5.0, 5.0, 10.0, 10.0, 30.0, 6.283185307179586, 5.0, 5.0, 10.0, 10.0, 30.0, 6.283185307179586, 5.0, 5.0]
+    fun = Push_RL()
+    x = torch.rand(2, 14).to(torch.float64)
+    y = fun(lb+(ub-lb)*x)

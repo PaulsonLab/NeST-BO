@@ -19,7 +19,9 @@ class Griewank_Dummy():
         return self.f(x[..., :self.dim_true])
     
     
-if __name__ == '__main__':    
+if __name__ == '__main__': 
+    lb = -300
+    ub = 300
     fun =Griewank_Dummy(dim_true = 3)
     x = torch.rand(2, 16)
-    fun(x)
+    y = fun(lb+(ub-lb)*x)
