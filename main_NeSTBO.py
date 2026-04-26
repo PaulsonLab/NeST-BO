@@ -32,6 +32,6 @@ def main(config: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    # import sys
-    # sys.argv.append("benchmark=pusher")
+    import sys
+    sys.argv.append("benchmark=swimmer")
     main()

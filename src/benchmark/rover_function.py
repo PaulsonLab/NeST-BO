@@ -1,7 +1,7 @@
 from src.benchmark.rover_utils import RoverDomain, PointBSpline, ConstObstacleCost, NegGeom, AABoxes, UnionGeom, AdditiveCosts, \
     ConstCost
 import numpy as np
-from helper import ConstantOffsetFn, NormalizedInputFn
+from src.benchmark.helper import ConstantOffsetFn, NormalizedInputFn
 import torch
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

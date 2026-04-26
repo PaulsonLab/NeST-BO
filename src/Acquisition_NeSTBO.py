@@ -112,8 +112,10 @@ class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
             X_look_head = torch.cat((X, theta))
             K_xX_dx = self._get_KxX_dx(x, X_look_head)
             K_xX_dxdx = self._get_KxX_dxdx(x, X_look_head)
-            K_XX_inv = torch.inverse((self.model.covar_module(X_look_head, X_look_head).evaluate()) + sigma_n * torch.eye(X_look_head.shape[0], device=X.device))
-           
+            # K_XX_inv = torch.inverse((self.model.covar_module(X_look_head, X_look_head).evaluate()) + sigma_n * torch.eye(X_look_head.shape[0], device=X.device))
+            K_XX_ = (self.model.covar_module(X_look_head, X_look_head).evaluate()) + sigma_n * torch.eye(X_look_head.shape[0], device=X.device)
+            L = torch.linalg.cholesky(K_XX_)
+            K_XX_inv = torch.cholesky_inverse(L)
             variance_d = -K_xX_dx @ K_XX_inv.to(torch.float64) @ K_xX_dx.transpose(1, 2)
                     
             A = torch.matmul(K_xX_dxdx, K_XX_inv).squeeze(0)   # (D, D, N)
