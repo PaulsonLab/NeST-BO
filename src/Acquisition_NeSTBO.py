@@ -104,6 +104,8 @@ class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
         D = self.model.D
         X = self.model.train_inputs[0]
         x = self.theta_i.view(-1, D)
+        idx_i = torch.arange(D)
+        idx_j = torch.arange(D)
         
         variances = []
         for theta in thetas.to(X.device):
@@ -121,9 +123,7 @@ class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
             A = torch.matmul(K_xX_dxdx, K_XX_inv).squeeze(0)   # (D, D, N)
             B = K_xX_dxdx.squeeze(0).permute(2, 0, 1)          # (N, D, D)
             variance_H = torch.tensordot(A, B, dims=([2], [0]))  # (D, D, D, D)
-            
-            idx_i = torch.arange(D)
-            idx_j = torch.arange(D)
+                  
             trace_H = -variance_H[idx_i[:, None], idx_j[None, :], idx_i[:, None], idx_j[None, :]].flatten()
         
             variances.append(torch.trace(variance_d.view(D, D)).view(1) + torch.sum(trace_H).view(1))
