@@ -138,7 +138,7 @@ Each benchmark config sets `start_point`, and you can override it on the command
 
 ```sh
 python main.py benchmark=sphere benchmark.start_point=best_sobol
-python main.py benchmark=sphere benchmark.dim=3 benchmark.M=3 benchmark.start_point=init "benchmark.init_point=[100.0,-50.0,0.0]"
+python main.py benchmark=ackley benchmark.dim=3 benchmark.M=3 benchmark.start_point=init "benchmark.init_point=[1.0,-2.0,0.5]"
 ```
 
 For NeST-BO-sub, all options work in the subspace. `random` and `best_sobol` draw their points there, and `center` maps exactly to the center of the domain. A point given with `init` usually cannot be represented exactly in the initial subspace. NeST-BO-sub then starts from its closest point in the subspace (least-squares projection) and logs a warning with the size of the deviation.
