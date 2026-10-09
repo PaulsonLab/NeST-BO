@@ -13,7 +13,7 @@ import torch
 from src.Acquisition_NeSTBO import NewtonInformation, optimize_acqf_custom_bo
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from model import DerivativeExactGPSEModel
-from optimization_loop_NeSTBO import START_POINTS, init_point_to_unit
+from optimization_loop_NeSTBO import START_POINTS, init_point_to_unit, resolve_device
 import gpytorch
 import botorch 
 import math
@@ -25,9 +25,8 @@ import numpy as np
 import tqdm
 
 dtype = torch.float64
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def embedding_matrix(input_dim: int, target_dim: int, seed) -> torch.Tensor:
+def embedding_matrix(input_dim: int, target_dim: int, seed, device) -> torch.Tensor:
     torch.manual_seed(seed)
     if (
         target_dim >= input_dim
@@ -111,7 +110,7 @@ def increase_embedding_and_observations(
     for row_idx in range(len(S)):
         row = S[row_idx]
         idxs_non_zero = torch.nonzero(row)
-        idxs_non_zero = idxs_non_zero[torch.randperm(len(idxs_non_zero))].reshape(-1)
+        idxs_non_zero = idxs_non_zero[torch.randperm(len(idxs_non_zero), device=S.device)].reshape(-1)
 
         if len(idxs_non_zero) <= 1:
             continue
@@ -164,7 +163,7 @@ class main():
     
         self.seed = config.seed
         torch.manual_seed(self.seed)
-        self.device = config.device
+        self.device = resolve_device(config.device)
         self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
         self.raw_samples = config.raw_samples
         self.T = config.benchmark.n_tot
@@ -182,7 +181,7 @@ class main():
         self.state = BaxusState(dim=self.dim, eval_budget=self.T, target_dim_init = self.target_dim_init)
         
         self.M = int(self.state.target_dim)
-        self.S = embedding_matrix(input_dim=self.dim, target_dim=self.state.target_dim, seed = self.seed).to(dtype).to(self.device)
+        self.S = embedding_matrix(input_dim=self.dim, target_dim=self.state.target_dim, seed = self.seed, device = self.device)
         
         # starting point (in the subspace [-1, 1]^target_dim): random | center | init | best_sobol
         start_point = config.benchmark.start_point

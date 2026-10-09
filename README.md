@@ -67,6 +67,20 @@ python main.py benchmark=ackley seed=1 benchmark.n_tot=1000 benchmark.dim=50 ben
 python main.py benchmark=ackley gd_lengthscale_scaling=true
 ```
 
+### CPU or GPU
+
+Choose the device with `device`. The default is `cuda`, which uses the first visible GPU:
+
+```sh
+python main.py benchmark=ackley device=cuda   # GPU (default)
+python main.py benchmark=ackley device=cpu    # CPU
+python main.py benchmark=ackley device=cuda:1 # a specific GPU
+```
+
+If you ask for `cuda` and no GPU is visible, the run stops with an error rather than switching to the CPU. To run on the CPU, pass `device=cpu`. Benchmarks that are simulated in NumPy (rover, pusher, Gymnasium, LassoBench) always evaluate the objective on the CPU. The GP and the acquisition function run on the device you choose.
+
+For the default problem sizes the GP matrices are small, so the CPU is often as fast as the GPU or faster. The GPU helps most when the dimension or the evaluation budget is large.
+
 To run several seeds or both algorithms in one call, use Hydra's multirun mode:
 
 ```sh
@@ -124,7 +138,7 @@ Global settings in [configs/default.yaml](configs/default.yaml):
 | --- | --- | --- |
 | `algorithm` | `nestbo` | `nestbo` (NeST-BO) or `nestbo_sub` (NeST-BO-sub) |
 | `seed` | `0` | Random seed for the initial design and starting point |
-| `device` | `"cpu"` | Torch device |
+| `device` | `"cuda"` | `cuda` (GPU) or `cpu` (see [CPU or GPU](#cpu-or-gpu)) |
 | `gd_lengthscale_scaling` | `false` | Multiply the normalized gradient fallback step by the GP lengthscales |
 | `raw_samples` | `256` | Number of random candidates scored to pick the starting points of the acquisition optimizer |
 

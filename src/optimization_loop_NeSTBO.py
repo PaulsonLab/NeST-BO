@@ -20,9 +20,17 @@ import botorch
 import hydra
 import tqdm as tqdm
 from gpytorch.priors.torch_priors import GammaPrior
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.float64
 START_POINTS = ("random", "center", "init", "best_sobol")
+
+def resolve_device(device):
+    """Returns config.device as a torch.device, failing if CUDA is requested but unavailable."""
+    device = torch.device(device)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError(f"device={device} was requested but no GPU is visible. "
+                           f"Run with device=cpu to use the CPU, or run on a machine/job with a GPU.")
+    logging.info(f"Using device: {device}")
+    return device
 
 def init_point_to_unit(init_point, lb, ub, dim):
     """Maps a user-given starting point in the original bounds [lb, ub] to the unit box."""
@@ -42,7 +50,7 @@ class main():
         
         self.seed = config.seed
         torch.manual_seed(self.seed)
-        self.device = config.device
+        self.device = resolve_device(config.device)
         self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
         self.raw_samples = config.raw_samples
         self.T = config.benchmark.n_tot
@@ -122,7 +130,6 @@ class main():
         
     def exec_alg(self):
         
-        lengthscale_constraint=gpytorch.constraints.Interval(0.005, 10)
         outputscale_constraint=None
         
         regret_y = [float(min(self.train_Y))]
@@ -147,6 +154,8 @@ class main():
             bounds[bounds>1] = 1
             bounds = bounds.to(self.device)
             
+            # fresh constraint per GP: gp.to(device) moves the constraint's bounds, so it can't be shared across iterations
+            lengthscale_constraint=gpytorch.constraints.Interval(0.005, 10)
             gp = DerivativeExactGPSEModel(self.dim, ard_num_dims=self.dim, lengthscale_constraint=lengthscale_constraint, outputscale_constraint=outputscale_constraint)
             gp = gp.to(self.device)
             gp.append_train_data(self.train_X, self.train_Y)

@@ -4,7 +4,7 @@ defaults:
 
 algorithm: nestbo  # nestbo (NeST-BO) or nestbo_sub (NeST-BO-sub)
 seed: 0
-device: "cpu"
+device: "cuda"  # cuda (GPU) or cpu; override on the command line, e.g. device=cpu
 gd_lengthscale_scaling: false  # scale the fallback gradient step by the GP lengthscales
 raw_samples: 256  # random candidates used to pick the acquisition optimizer's restart points
 
