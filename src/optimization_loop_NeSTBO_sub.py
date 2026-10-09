@@ -166,6 +166,7 @@ class main():
         torch.manual_seed(self.seed)
         self.device = config.device
         self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
+        self.raw_samples = config.raw_samples
         self.T = config.benchmark.n_tot
         self.delta = config.benchmark.delta
         self.fun = hydra.utils.instantiate(config.benchmark.fn)
@@ -303,7 +304,7 @@ class main():
             
             # inner loop for NeST-BO-sub         
             for i in range(self.M):
-                new_x, acq_value = optimize_acqf_custom_bo(acquisition_fcn, bounds, q=1, num_restarts = 5, raw_samples = 20)
+                new_x, acq_value = optimize_acqf_custom_bo(acquisition_fcn, bounds, q=1, num_restarts = 5, raw_samples = self.raw_samples)
                 new_x_inverse = (new_x @ self.S + 1)/2
                 new_y = self.fun(self.lb + (self.ub - self.lb) *new_x_inverse).detach().to(dtype).to(self.device)
                 

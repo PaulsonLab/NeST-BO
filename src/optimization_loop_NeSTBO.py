@@ -44,6 +44,7 @@ class main():
         torch.manual_seed(self.seed)
         self.device = config.device
         self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
+        self.raw_samples = config.raw_samples
         self.T = config.benchmark.n_tot
         self.delta = config.benchmark.delta
         self.M = config.benchmark.M
@@ -178,7 +179,7 @@ class main():
             
             for i in range(self.M):
                 # print('Inner loop iter:', i)
-                new_x, acq_value = optimize_acqf_custom_bo(acquisition_fcn, bounds, q = 1, num_restarts = 5, raw_samples = 20)
+                new_x, acq_value = optimize_acqf_custom_bo(acquisition_fcn, bounds, q = 1, num_restarts = 5, raw_samples = self.raw_samples)
                 new_y = self.fun(self.lb + (self.ub - self.lb) *new_x).detach().to(dtype).to(self.device)
                     
                 self.train_X = torch.cat((new_x, self.train_X))

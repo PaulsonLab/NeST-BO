@@ -126,6 +126,7 @@ Global settings in [configs/default.yaml](configs/default.yaml):
 | `seed` | `0` | Random seed for the initial design and starting point |
 | `device` | `"cpu"` | Torch device |
 | `gd_lengthscale_scaling` | `false` | Multiply the normalized gradient fallback step by the GP lengthscales |
+| `raw_samples` | `256` | Number of random candidates scored to pick the starting points of the acquisition optimizer |
 
 ### Starting point
 
@@ -205,7 +206,7 @@ How it is computed:
 
 `optimize_acqf_custom_bo` maximizes `α` with BoTorch's `optimize_acqf`:
 - **Bounds:** the local box `[x_t − delta, x_t + delta]`, clipped to the domain.
-- **Settings:** `q = 1`, 20 raw samples to pick 5 restarts, and L-BFGS-B with at most 300 iterations.
+- **Settings:** `q = 1`, `raw_samples` (default 256) random candidates to pick 5 restarts, and L-BFGS-B with at most 300 iterations.
 
 The `M` points are selected **greedily**. After each point is chosen, it is evaluated and added to the GP's training data without refitting the hyperparameters. The next point is then selected against the updated data.
 
