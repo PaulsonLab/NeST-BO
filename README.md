@@ -1,38 +1,154 @@
 # NeST-BO: Fast Local Bayesian Optimization via Newton-Step Targeting of Gradient and Hessian Information
 
-This repository contains the code to reproduce the NeST-BO and NeST-BO-sub algorithms proposed in the paper _NeST-BO: Fast Local Bayesian Optimization via Newton-Step Targeting of Gradient and Hessian Information_. 
+This repository contains the code for **NeST-BO** and **NeST-BO-sub**, the algorithms proposed in the paper
+[_NeST-BO: Fast Local Bayesian Optimization via Newton-Step Targeting of Gradient and Hessian Information_](https://arxiv.org/abs/2510.05516) (AISTATS 2026).
 
-NeST-BO has been published as a conference paper in AISTATS 2026.
+## Method overview
 
-# Installation
+NeST-BO is a local Bayesian optimization method that takes Newton steps on a Gaussian process (GP) surrogate. Each iteration:
+
+1. Fits a GP with a squared-exponential (ARD) kernel to all data collected so far.
+2. **Inner loop.** It greedily selects `M` points inside a box of half-width `delta` around the current iterate `x_t`. Each point maximizes the NeST acquisition function, which is the reduction in the summed posterior variance of the gradient and the Hessian at `x_t`.
+3. Evaluates the objective at these points, then refits the GP.
+4. **Outer step.** It computes the GP's predicted gradient and Hessian at `x_t`:
+   - If the Hessian is positive definite, it takes a Newton step with Armijo backtracking on the GP mean.
+   - Otherwise, it takes a normalized gradient step, also with Armijo backtracking.
+
+**NeST-BO-sub** runs the same procedure in a low-dimensional random subspace. It uses BAxUS-style nested embeddings, and the subspace dimension grows after 10 consecutive iterations without improvement. Use it for high-dimensional problems.
+
+All problems are formulated as **minimization**.
+
+## Installation
+
+The code was developed with Python 3.11.
+
 ```sh
+git clone https://github.com/PaulsonLab/NeST-BO.git
+cd NeST-BO
 pip install -r requirements.txt
 ```
 
-## Running Experiments
+`requirements.txt` installs PyTorch, BoTorch, GPyTorch, Hydra, Gymnasium, and LassoBench (from GitHub). That is enough for the synthetic and Leukemia benchmarks. Some benchmarks need extra packages:
 
-Experiments can be run using the `main_NeSTBO.py` and `main_NeSTBO_sub.py` script. You must specify a benchmark to run the algorithms.
+| Benchmarks | Extra dependency | Install |
+| --- | --- | --- |
+| `lunar` | Box2D | `pip install "gymnasium[box2d]==1.1.0"` (requires `swig`) |
+| `pusher` | Box2D and pygame | `pip install "gymnasium[box2d]==1.1.0" pygame` |
+| `swimmer`, `ant` | MuJoCo | `pip install "gymnasium[mujoco]==1.1.0"` |
 
-**Basic Command**
+## Running experiments
+
+There is one entry point per algorithm. You must choose a benchmark:
+
+```sh
+python main_NeSTBO.py     benchmark=<benchmark_name> seed=<seed>   # NeST-BO
+python main_NeSTBO_sub.py benchmark=<benchmark_name> seed=<seed>   # NeST-BO-sub
 ```
-python main_NeSTBO.py benchmark=<benchmark_name>
-python main_NeSTBO_sub.py benchmark=<benchmark_name>
+
+For example:
+
+```sh
+python main_NeSTBO.py benchmark=ackley seed=0
+python main_NeSTBO_sub.py benchmark=ackley_dummy seed=0
 ```
 
-*   To see a list of available benchmarks, run `python main_NeSTBO.py`.
-*   Adding `seed=<number>` is recommended for reproducibility.
+Running a script without `benchmark=` prints the list of available benchmarks.
 
-**Configuration Overrides**
+### Overriding settings
 
-All default settings are stored in configs/default.yaml. Since this project uses [Hydra](https://hydra.cc/), you have the flexibility to modify these values on the fly via the command line without editing the file.
+The project uses [Hydra](https://hydra.cc/). Any value in [configs/default.yaml](configs/default.yaml) or in the benchmark config can be overridden on the command line without editing files:
+
+```sh
+# Larger budget, different dimension and inner-loop batch size
+python main_NeSTBO.py benchmark=ackley seed=1 benchmark.n_tot=1000 benchmark.dim=50 benchmark.M=50
+
+# Scale the fallback gradient step by the GP lengthscales
+python main_NeSTBO.py benchmark=ackley gd_lengthscale_scaling=true
+```
+
+To run several seeds in one call, use Hydra's multirun mode:
+
+```sh
+python main_NeSTBO.py -m benchmark=ackley seed=0,1,2,3,4
+```
+
+### Output
+
+Each run creates a folder `outputs/<timestamp>/` with the Hydra log and the resolved config. The log ends with the best objective value found (`min obj value: ...`). A progress bar shows the best value during the run.
+
+Both loops return the full data from `exec_alg()`: the inputs `X` (scaled to the unit box, or to the subspace for NeST-BO-sub), the objective values `Y`, and the best-so-far history. The entry scripts do not save them to disk. Add your own `torch.save(...)` in `main_NeSTBO.py` or `main_NeSTBO_sub.py` if you need them.
+
+## Benchmarks
+
+Each benchmark is defined by a file in [configs/benchmark/](configs/benchmark/). Inputs are optimized in `[0, 1]^dim` (or `[-1, 1]` in the NeST-BO-sub subspace) and rescaled to `[lb, ub]` before each evaluation.
+
+| Benchmark | Description | `dim` | Budget (`n_tot`) | Script |
+| --- | --- | --- | --- | --- |
+| `ackley` | Ackley function | 20 | 800 | NeST-BO |
+| `griewank` | Griewank function | 20 | 500 | NeST-BO |
+| `sphere` | Sphere function | 20 | 500 | NeST-BO |
+| `ackley_dummy` | Ackley, 30 active dimensions out of 1000 | 1000 | 200 | NeST-BO-sub |
+| `griewank_dummy` | Griewank, 30 active dimensions out of 1000 | 1000 | 200 | NeST-BO-sub |
+| `rosenbrock_dummy` | Rosenbrock, 30 active dimensions out of 1000 | 1000 | 200 | NeST-BO-sub |
+| `rover` | Rover trajectory planning | 60 | 800 | both |
+| `pusher` | Robot pushing, two robots (Box2D) | 14 | 300 | both |
+| `lunar` | Lunar Lander-v3 controller (Gymnasium) | 12 | 300 | both |
+| `swimmer` | Swimmer-v5 linear policy (MuJoCo) | 16 | 300 | both |
+| `ant` | Ant-v4 linear policy (MuJoCo) | 888 | 300 | both |
+| `leukemia` | Weighted Lasso hyperparameter tuning on the Leukemia dataset (LassoBench) | 7129 | 300 | both |
+
+The script column follows from the config contents. `main_NeSTBO.py` needs `M`, and `main_NeSTBO_sub.py` needs `target_dim_init`. A benchmark with only one of these fields runs only with the matching script. Add the missing field as an override to use the other script, e.g. `benchmark.M=20`.
+
+The RL, rover, and pusher rewards are negated, so lower values are better.
+
+### Configuration parameters
+
+| Key | Meaning |
+| --- | --- |
+| `n_tot` | Total number of function evaluations, including the initial points |
+| `N_init` | Number of initial Sobol points; the starting iterate is evaluated as well |
+| `dim` | Input dimension of the objective |
+| `lb`, `ub` | Lower and upper bounds of the search space (scalar or per dimension) |
+| `delta` | Half-width of the local box for the inner-loop acquisition search (in unit-box coordinates) |
+| `M` | Number of inner-loop points per iteration (NeST-BO only; NeST-BO-sub uses the current subspace dimension) |
+| `target_dim_init` | Minimum initial subspace dimension (NeST-BO-sub only) |
+| `dim_true` | Number of active dimensions in the `*_dummy` problems |
+| `params.random` / `params.center` / `params.init` | Starting iterate: random, center of the domain, or a given point |
+| `fn` | Objective to instantiate (Hydra `_target_`) |
+
+Global settings in [configs/default.yaml](configs/default.yaml):
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `seed` | `0` | Random seed for the initial design and starting point |
+| `device` | `"cpu"` | Torch device |
+| `gd_lengthscale_scaling` | `false` | Multiply the normalized gradient fallback step by the GP lengthscales |
+
+### Adding a benchmark
+
+1. Write a callable that takes an `(n, dim)` tensor in the original bounds and returns `n` objective values to be minimized. See [src/benchmark/Sphere.py](src/benchmark/Sphere.py).
+2. Add `configs/benchmark/<name>.yaml` with the keys above, setting `fn._target_` to your callable.
+3. Run `python main_NeSTBO.py benchmark=<name>`.
+
+## Repository structure
 
 ```
-# Example: override the evaluation budget for the ackley benchmark
-python main_NeSTBO.py benchmark=ackley seed=0 benchmark.n_tot=1000
+main_NeSTBO.py                       # Hydra entry point for NeST-BO
+main_NeSTBO_sub.py                   # Hydra entry point for NeST-BO-sub
+configs/
+  default.yaml                       # global settings
+  benchmark/*.yaml                   # one config per benchmark
+src/
+  Acquisition_NeSTBO.py              # NeST acquisition function and its optimizer
+  model.py                           # GP model with posterior gradient and Hessian
+  optimization_loop_NeSTBO.py        # NeST-BO loop
+  optimization_loop_NeSTBO_sub.py    # NeST-BO-sub loop (BAxUS-style embeddings)
+  benchmark/                         # benchmark objectives
 ```
 
 ## Citation
-If you use this code in your research, please cite the following paper:
+
+If you use this code in your research, please cite:
 
 ```
 @article{tang2025nest,
@@ -42,3 +158,7 @@ If you use this code in your research, please cite the following paper:
   year={2025}
 }
 ```
+
+## License
+
+See [LICENSE](LICENSE).
