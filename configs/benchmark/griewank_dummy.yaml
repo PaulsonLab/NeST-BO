@@ -7,10 +7,8 @@ dim_true: 30
 target_dim_init: 4
 lb: -300
 ub: 300
-params:
-  random: true
-  center: False
-  init: null
+start_point: random  # random | center | init | best_sobol
+init_point: null  # starting point in [lb, ub], used when start_point=init
 
 fn:
   _target_: src.benchmark.Griewank_dummy.Griewank_Dummy

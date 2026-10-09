@@ -7,10 +7,8 @@ M: 60
 target_dim_init: 30
 lb: -0.1
 ub: 1.1
-params:
-  random: False
-  center: true
-  init: null
+start_point: center  # random | center | init | best_sobol
+init_point: null  # starting point in [lb, ub], used when start_point=init
 
 fn:
   _target_: src.benchmark.rover_function.rover_fun

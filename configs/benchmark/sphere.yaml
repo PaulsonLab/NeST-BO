@@ -6,10 +6,8 @@ dim: 20
 M: 20
 lb: -400
 ub: 400
-params:
-  random: true
-  center: False
-  init: null
+start_point: random  # random | center | init | best_sobol
+init_point: null  # starting point in [lb, ub], used when start_point=init
 
 fn:
   _target_: src.benchmark.Sphere.Sphere

@@ -13,6 +13,7 @@ import torch
 from src.Acquisition_NeSTBO import NewtonInformation, optimize_acqf_custom_bo
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from model import DerivativeExactGPSEModel
+from optimization_loop_NeSTBO import START_POINTS, init_point_to_unit
 import gpytorch
 import botorch 
 import math
@@ -162,6 +163,7 @@ class main():
         logging.info("\n" + OmegaConf.to_yaml(config))
     
         self.seed = config.seed
+        torch.manual_seed(self.seed)
         self.device = config.device
         self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
         self.T = config.benchmark.n_tot
@@ -181,17 +183,35 @@ class main():
         self.M = int(self.state.target_dim)
         self.S = embedding_matrix(input_dim=self.dim, target_dim=self.state.target_dim, seed = self.seed).to(dtype).to(self.device)
         
-        if config.benchmark.params.random:
-            torch.manual_seed(self.seed)
-            self.params = (-1+2*torch.rand(self.state.target_dim, dtype=dtype, device=self.device)).unsqueeze(0)
-        elif config.benchmark.params.center:
-            self.params = torch.tensor([0.0]*self.state.target_dim).unsqueeze(0).to(dtype).to(self.device)
-        else:
-            self.params = torch.tensor([config.benchmark.params.init], dtype=dtype, device=self.device)
+        # starting point (in the subspace [-1, 1]^target_dim): random | center | init | best_sobol
+        start_point = config.benchmark.start_point
+        if start_point not in START_POINTS:
+            raise ValueError(f"Unknown start_point '{start_point}'. Choose one of: {', '.join(START_POINTS)}")
         self.train_X = -1+2*torch.quasirandom.SobolEngine(dimension=self.state.target_dim,  scramble=True, seed=self.seed).draw(self.N_init).to(dtype).to(self.device)
-        self.train_X = torch.cat((self.params, self.train_X))    
-        train_X_inverse = ((self.train_X @ self.S + 1)/2).to(dtype).to(self.device)
-        self.train_Y = self.fun(self.lb+(self.ub-self.lb)*train_X_inverse).detach().to(dtype).to(self.device)
+        if start_point == "best_sobol":
+            # start from the best of the N_init Sobol samples (no extra evaluation)
+            train_X_inverse = ((self.train_X @ self.S + 1)/2).to(dtype).to(self.device)
+            self.train_Y = self.fun(self.lb+(self.ub-self.lb)*train_X_inverse).detach().to(dtype).to(self.device)
+            order = torch.argsort(self.train_Y.view(-1))
+            self.train_X, self.train_Y = self.train_X[order], self.train_Y[order]
+            self.params = self.train_X[:1].clone()
+        else:
+            if start_point == "random":
+                torch.manual_seed(self.seed)
+                self.params = (-1+2*torch.rand(self.state.target_dim, dtype=dtype, device=self.device)).unsqueeze(0)
+            elif start_point == "center":
+                self.params = torch.tensor([0.0]*self.state.target_dim).unsqueeze(0).to(dtype).to(self.device)
+            else:
+                # least-squares projection onto the subspace (rows of S have disjoint supports)
+                x = 2*init_point_to_unit(config.benchmark.init_point, self.lb, self.ub, self.dim) - 1
+                self.params = (x @ self.S.T) / (self.S**2).sum(1)
+                proj_err = (self.params @ self.S - x).abs().max().item()
+                if proj_err > 1e-8:
+                    logging.warning(f"init_point is not representable in the initial {self.state.target_dim}-dim subspace; "
+                                    f"starting from its projection (max deviation {proj_err:.3g} in [-1, 1] coordinates)")
+            self.train_X = torch.cat((self.params, self.train_X))
+            train_X_inverse = ((self.train_X @ self.S + 1)/2).to(dtype).to(self.device)
+            self.train_Y = self.fun(self.lb+(self.ub-self.lb)*train_X_inverse).detach().to(dtype).to(self.device)
        
     
     def is_positive_semi_definite_eigen(self, A):

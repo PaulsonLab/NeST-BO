@@ -105,14 +105,15 @@ The RL, rover, and pusher rewards are negated, so lower values are better.
 | Key | Meaning |
 | --- | --- |
 | `n_tot` | Total number of function evaluations, including the initial points |
-| `N_init` | Number of initial Sobol points; the starting iterate is evaluated as well |
+| `N_init` | Number of initial Sobol points. The starting point is evaluated in addition to these, except with `start_point=best_sobol` |
 | `dim` | Input dimension of the objective |
 | `lb`, `ub` | Lower and upper bounds of the search space (scalar or per dimension) |
 | `delta` | Half-width of the local box for the inner-loop acquisition search (in unit-box coordinates) |
 | `M` | Number of inner-loop points per iteration (NeST-BO only; NeST-BO-sub uses the current subspace dimension) |
 | `target_dim_init` | Minimum initial subspace dimension (NeST-BO-sub only) |
 | `dim_true` | Number of active dimensions in the `*_dummy` problems |
-| `params.random` / `params.center` / `params.init` | Starting iterate: random, center of the domain, or a given point |
+| `start_point` | How the starting point is chosen: `random`, `center`, `init`, or `best_sobol` (see [Starting point](#starting-point)) |
+| `init_point` | The starting point in the original bounds `[lb, ub]`, used when `start_point=init` |
 | `fn` | Objective to instantiate (Hydra `_target_`) |
 
 Global settings in [configs/default.yaml](configs/default.yaml):
@@ -123,6 +124,24 @@ Global settings in [configs/default.yaml](configs/default.yaml):
 | `seed` | `0` | Random seed for the initial design and starting point |
 | `device` | `"cpu"` | Torch device |
 | `gd_lengthscale_scaling` | `false` | Multiply the normalized gradient fallback step by the GP lengthscales |
+
+### Starting point
+
+Each benchmark config sets `start_point`, and you can override it on the command line:
+
+| `start_point` | Starting point |
+| --- | --- |
+| `random` | A uniform random point in the search space, determined by `seed` |
+| `center` | The center of `[lb, ub]` |
+| `init` | The point given in `init_point`, in the original bounds `[lb, ub]` |
+| `best_sobol` | The best of the `N_init` initial Sobol points; no extra evaluation is spent |
+
+```sh
+python main.py benchmark=sphere benchmark.start_point=best_sobol
+python main.py benchmark=sphere benchmark.dim=3 benchmark.M=3 benchmark.start_point=init "benchmark.init_point=[100.0,-50.0,0.0]"
+```
+
+For NeST-BO-sub, all options work in the subspace. `random` and `best_sobol` draw their points there, and `center` maps exactly to the center of the domain. A point given with `init` usually cannot be represented exactly in the initial subspace. NeST-BO-sub then starts from its closest point in the subspace (least-squares projection) and logs a warning with the size of the deviation.
 
 ### Adding a benchmark
 

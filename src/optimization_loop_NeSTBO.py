@@ -22,6 +22,16 @@ import tqdm as tqdm
 from gpytorch.priors.torch_priors import GammaPrior
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.float64
+START_POINTS = ("random", "center", "init", "best_sobol")
+
+def init_point_to_unit(init_point, lb, ub, dim):
+    """Maps a user-given starting point in the original bounds [lb, ub] to the unit box."""
+    if init_point is None or len(init_point) != dim:
+        raise ValueError(f"start_point=init requires 'benchmark.init_point', a list of {dim} values within [lb, ub]")
+    x = torch.tensor(list(init_point), dtype=dtype, device=lb.device)
+    if torch.any(x < lb) or torch.any(x > ub):
+        raise ValueError("benchmark.init_point must lie within [lb, ub]")
+    return ((x - lb) / (ub - lb)).unsqueeze(0)
 
 class main():
     
@@ -31,6 +41,7 @@ class main():
         logging.info("\n" + OmegaConf.to_yaml(config))
         
         self.seed = config.seed
+        torch.manual_seed(self.seed)
         self.device = config.device
         self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
         self.T = config.benchmark.n_tot
@@ -46,16 +57,28 @@ class main():
         self.lb = torch.tensor(config.benchmark.lb).to(dtype).to(self.device)
         self.ub = torch.tensor(config.benchmark.ub).to(dtype).to(self.device)
         self.N_init = config.benchmark.N_init
-        if config.benchmark.params.random:
-            torch.manual_seed(self.seed)
-            self.params = torch.rand(self.dim, dtype=dtype, device=self.device).unsqueeze(0)
-        elif config.benchmark.params.center:
-            self.params = torch.tensor([0.5]*self.dim).unsqueeze(0).to(dtype).to(self.device)
-        else:
-            self.params = torch.tensor([config.benchmark.params.init], dtype=dtype, device=self.device)
+
+        # starting point (in the unit box): random | center | init | best_sobol
+        start_point = config.benchmark.start_point
+        if start_point not in START_POINTS:
+            raise ValueError(f"Unknown start_point '{start_point}'. Choose one of: {', '.join(START_POINTS)}")
         self.train_X = torch.quasirandom.SobolEngine(dimension=self.dim,  scramble=True, seed=self.seed).draw(self.N_init).to(dtype).to(self.device)
-        self.train_X = torch.cat((self.params, self.train_X))    
-        self.train_Y = self.fun(self.lb+(self.ub-self.lb)*self.train_X).detach().to(dtype).to(self.device)
+        if start_point == "best_sobol":
+            # start from the best of the N_init Sobol samples (no extra evaluation)
+            self.train_Y = self.fun(self.lb+(self.ub-self.lb)*self.train_X).detach().to(dtype).to(self.device)
+            order = torch.argsort(self.train_Y.view(-1))
+            self.train_X, self.train_Y = self.train_X[order], self.train_Y[order]
+            self.params = self.train_X[:1].clone()
+        else:
+            if start_point == "random":
+                torch.manual_seed(self.seed)
+                self.params = torch.rand(self.dim, dtype=dtype, device=self.device).unsqueeze(0)
+            elif start_point == "center":
+                self.params = torch.tensor([0.5]*self.dim).unsqueeze(0).to(dtype).to(self.device)
+            else:
+                self.params = init_point_to_unit(config.benchmark.init_point, self.lb, self.ub, self.dim)
+            self.train_X = torch.cat((self.params, self.train_X))
+            self.train_Y = self.fun(self.lb+(self.ub-self.lb)*self.train_X).detach().to(dtype).to(self.device)
     
     def is_positive_semi_definite_eigen(self, A):
         """Check if a tensor A is positive semi-definite using eigenvalues."""

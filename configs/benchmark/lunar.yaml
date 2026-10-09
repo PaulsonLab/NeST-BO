@@ -7,10 +7,8 @@ M: 12
 target_dim_init: 6
 lb: 0
 ub: 2
-params:
-  random: False
-  center: true
-  init: null
+start_point: center  # random | center | init | best_sobol
+init_point: null  # starting point in [lb, ub], used when start_point=init
 
 fn:
   _target_: src.benchmark.RL_fun_Lunar.RL_fun
