@@ -75,13 +75,13 @@ python main.py -m benchmark=rover algorithm=nestbo,nestbo_sub seed=0,1,2,3,4
 
 Each run creates a folder `outputs/<timestamp>/` with the Hydra log and the resolved config. The log ends with the best objective value found (`min obj value: ...`). A progress bar shows the best value during the run.
 
-Both loops return the full data from `exec_alg()`: the inputs `X` (scaled to the unit box, or to the subspace for NeST-BO-sub), the objective values `Y`, and the best-so-far history. `main.py` does not save them to disk. Add your own `torch.save(...)` in `main.py` if you need them.
+Both loops return the full data from `exec_alg()`: the inputs `X` (scaled to the unit box, or to the subspace for NeST-BO-sub), the objective values `Y`, and the best-so-far history. The history has `n_tot` entries: the best value of the initial design, followed by one entry per evaluation after it. `main.py` does not save them to disk. Add your own `torch.save(...)` in `main.py` if you need them.
 
 ## Benchmarks
 
 Each benchmark is defined by a file in [configs/benchmark/](configs/benchmark/). Inputs are optimized in `[0, 1]^dim` (or `[-1, 1]` in the NeST-BO-sub subspace) and rescaled to `[lb, ub]` before each evaluation.
 
-| Benchmark | Description | `dim` | Budget (`n_tot`) | Algorithm |
+| Benchmark | Description | `dim` | Budget after initial design (`n_tot`) | Algorithm |
 | --- | --- | --- | --- | --- |
 | `ackley` | Ackley function | 20 | 800 | `nestbo` |
 | `griewank` | Griewank function | 20 | 500 | `nestbo` |
@@ -104,8 +104,8 @@ The RL, rover, and pusher rewards are negated, so lower values are better.
 
 | Key | Meaning |
 | --- | --- |
-| `n_tot` | Total number of function evaluations, including the initial points |
-| `N_init` | Number of initial Sobol points. The starting point is evaluated in addition to these, except with `start_point=best_sobol` |
+| `n_tot` | Evaluation budget after the initial design. The run makes `n_tot − 1` evaluations after the initial design, because the initial design counts as the first entry of the best-so-far history |
+| `N_init` | Number of initial Sobol points. The starting point is evaluated in addition to these, except with `start_point=best_sobol`. The initial design does not count toward `n_tot` |
 | `dim` | Input dimension of the objective |
 | `lb`, `ub` | Lower and upper bounds of the search space (scalar or per dimension) |
 | `delta` | Half-width of the local box for the inner-loop acquisition search (in unit-box coordinates) |
@@ -135,6 +135,8 @@ Each benchmark config sets `start_point`, and you can override it on the command
 | `center` | The center of `[lb, ub]` |
 | `init` | The point given in `init_point`, in the original bounds `[lb, ub]` |
 | `best_sobol` | The best of the `N_init` initial Sobol points; no extra evaluation is spent |
+
+In total, a run makes `N_init + n_tot` evaluations, or `N_init + n_tot − 1` with `best_sobol`.
 
 ```sh
 python main.py benchmark=sphere benchmark.start_point=best_sobol

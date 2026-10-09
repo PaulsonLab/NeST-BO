@@ -23,8 +23,8 @@ hydra:
     subdir: ${hydra.job.override_dirname}
 
 benchmark:  # see subconfigs for benchmark-specific options
-  n_tot: ???  # Total number of points to evaluate function on
-  N_init: ???  # Number of initial points to sample
+  n_tot: ???  # Evaluation budget after the initial design (n_tot - 1 new evaluations)
+  N_init: ???  # Number of initial Sobol points (not counted in n_tot)
   mujoco:
     binary_path: null
     apptainer_sif_path: null
