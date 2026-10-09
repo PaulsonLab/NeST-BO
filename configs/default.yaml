@@ -2,6 +2,7 @@ defaults:
   - benchmark: ???
   - _self_
 
+algorithm: nestbo  # nestbo (NeST-BO) or nestbo_sub (NeST-BO-sub)
 seed: 0
 device: "cpu"
 gd_lengthscale_scaling: false  # scale the fallback gradient step by the GP lengthscales

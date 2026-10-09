@@ -111,7 +111,7 @@ class RoverDomain:
             self.goal_miss_cost = simple_rbf
 
         if self.rnd_stream is None:
-            self.rnd_stream = np.random.RandomState(np.random.randint(0, 2 ** 32 - 1))
+            self.rnd_stream = np.random.RandomState(np.random.randint(0, 2 ** 32 - 1, dtype=np.int64))
 
     # return the negative cost which need to be optimized
     def __call__(self, params, n_samples=1000):

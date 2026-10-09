@@ -38,21 +38,20 @@ pip install -r requirements.txt
 
 ## Running experiments
 
-There is one entry point per algorithm. You must choose a benchmark:
+All experiments run through `main.py`. You must choose a benchmark. The `algorithm` setting selects `nestbo` (NeST-BO, the default) or `nestbo_sub` (NeST-BO-sub):
 
 ```sh
-python main_NeSTBO.py     benchmark=<benchmark_name> seed=<seed>   # NeST-BO
-python main_NeSTBO_sub.py benchmark=<benchmark_name> seed=<seed>   # NeST-BO-sub
+python main.py benchmark=<benchmark_name> algorithm=<nestbo|nestbo_sub> seed=<seed>
 ```
 
 For example:
 
 ```sh
-python main_NeSTBO.py benchmark=ackley seed=0
-python main_NeSTBO_sub.py benchmark=ackley_dummy seed=0
+python main.py benchmark=ackley seed=0                             # NeST-BO
+python main.py benchmark=ackley_dummy algorithm=nestbo_sub seed=0  # NeST-BO-sub
 ```
 
-Running a script without `benchmark=` prints the list of available benchmarks.
+Running `python main.py` without `benchmark=` prints the list of available benchmarks.
 
 ### Overriding settings
 
@@ -60,36 +59,36 @@ The project uses [Hydra](https://hydra.cc/). Any value in [configs/default.yaml]
 
 ```sh
 # Larger budget, different dimension and inner-loop batch size
-python main_NeSTBO.py benchmark=ackley seed=1 benchmark.n_tot=1000 benchmark.dim=50 benchmark.M=50
+python main.py benchmark=ackley seed=1 benchmark.n_tot=1000 benchmark.dim=50 benchmark.M=50
 
 # Scale the fallback gradient step by the GP lengthscales
-python main_NeSTBO.py benchmark=ackley gd_lengthscale_scaling=true
+python main.py benchmark=ackley gd_lengthscale_scaling=true
 ```
 
-To run several seeds in one call, use Hydra's multirun mode:
+To run several seeds or both algorithms in one call, use Hydra's multirun mode:
 
 ```sh
-python main_NeSTBO.py -m benchmark=ackley seed=0,1,2,3,4
+python main.py -m benchmark=rover algorithm=nestbo,nestbo_sub seed=0,1,2,3,4
 ```
 
 ### Output
 
 Each run creates a folder `outputs/<timestamp>/` with the Hydra log and the resolved config. The log ends with the best objective value found (`min obj value: ...`). A progress bar shows the best value during the run.
 
-Both loops return the full data from `exec_alg()`: the inputs `X` (scaled to the unit box, or to the subspace for NeST-BO-sub), the objective values `Y`, and the best-so-far history. The entry scripts do not save them to disk. Add your own `torch.save(...)` in `main_NeSTBO.py` or `main_NeSTBO_sub.py` if you need them.
+Both loops return the full data from `exec_alg()`: the inputs `X` (scaled to the unit box, or to the subspace for NeST-BO-sub), the objective values `Y`, and the best-so-far history. `main.py` does not save them to disk. Add your own `torch.save(...)` in `main.py` if you need them.
 
 ## Benchmarks
 
 Each benchmark is defined by a file in [configs/benchmark/](configs/benchmark/). Inputs are optimized in `[0, 1]^dim` (or `[-1, 1]` in the NeST-BO-sub subspace) and rescaled to `[lb, ub]` before each evaluation.
 
-| Benchmark | Description | `dim` | Budget (`n_tot`) | Script |
+| Benchmark | Description | `dim` | Budget (`n_tot`) | Algorithm |
 | --- | --- | --- | --- | --- |
-| `ackley` | Ackley function | 20 | 800 | NeST-BO |
-| `griewank` | Griewank function | 20 | 500 | NeST-BO |
-| `sphere` | Sphere function | 20 | 500 | NeST-BO |
-| `ackley_dummy` | Ackley, 30 active dimensions out of 1000 | 1000 | 200 | NeST-BO-sub |
-| `griewank_dummy` | Griewank, 30 active dimensions out of 1000 | 1000 | 200 | NeST-BO-sub |
-| `rosenbrock_dummy` | Rosenbrock, 30 active dimensions out of 1000 | 1000 | 200 | NeST-BO-sub |
+| `ackley` | Ackley function | 20 | 800 | `nestbo` |
+| `griewank` | Griewank function | 20 | 500 | `nestbo` |
+| `sphere` | Sphere function | 20 | 500 | `nestbo` |
+| `ackley_dummy` | Ackley, 30 active dimensions out of 1000 | 1000 | 200 | `nestbo_sub` |
+| `griewank_dummy` | Griewank, 30 active dimensions out of 1000 | 1000 | 200 | `nestbo_sub` |
+| `rosenbrock_dummy` | Rosenbrock, 30 active dimensions out of 1000 | 1000 | 200 | `nestbo_sub` |
 | `rover` | Rover trajectory planning | 60 | 800 | both |
 | `pusher` | Robot pushing, two robots (Box2D) | 14 | 300 | both |
 | `lunar` | Lunar Lander-v3 controller (Gymnasium) | 12 | 300 | both |
@@ -97,7 +96,7 @@ Each benchmark is defined by a file in [configs/benchmark/](configs/benchmark/).
 | `ant` | Ant-v4 linear policy (MuJoCo) | 888 | 300 | both |
 | `leukemia` | Weighted Lasso hyperparameter tuning on the Leukemia dataset (LassoBench) | 7129 | 300 | both |
 
-The script column follows from the config contents. `main_NeSTBO.py` needs `M`, and `main_NeSTBO_sub.py` needs `target_dim_init`. A benchmark with only one of these fields runs only with the matching script. Add the missing field as an override to use the other script, e.g. `benchmark.M=20`.
+The algorithm column follows from the config contents. NeST-BO needs `M`, and NeST-BO-sub needs `target_dim_init`. A benchmark with only one of these fields runs only with the matching algorithm. To use the other algorithm, add the missing field with Hydra's `+` prefix, e.g. `python main.py benchmark=ackley_dummy +benchmark.M=20`.
 
 The RL, rover, and pusher rewards are negated, so lower values are better.
 
@@ -120,6 +119,7 @@ Global settings in [configs/default.yaml](configs/default.yaml):
 
 | Key | Default | Meaning |
 | --- | --- | --- |
+| `algorithm` | `nestbo` | `nestbo` (NeST-BO) or `nestbo_sub` (NeST-BO-sub) |
 | `seed` | `0` | Random seed for the initial design and starting point |
 | `device` | `"cpu"` | Torch device |
 | `gd_lengthscale_scaling` | `false` | Multiply the normalized gradient fallback step by the GP lengthscales |
@@ -128,13 +128,12 @@ Global settings in [configs/default.yaml](configs/default.yaml):
 
 1. Write a callable that takes an `(n, dim)` tensor in the original bounds and returns `n` objective values to be minimized. See [src/benchmark/Sphere.py](src/benchmark/Sphere.py).
 2. Add `configs/benchmark/<name>.yaml` with the keys above, setting `fn._target_` to your callable.
-3. Run `python main_NeSTBO.py benchmark=<name>`.
+3. Run `python main.py benchmark=<name>`.
 
 ## Repository structure
 
 ```
-main_NeSTBO.py                       # Hydra entry point for NeST-BO
-main_NeSTBO_sub.py                   # Hydra entry point for NeST-BO-sub
+main.py                              # Hydra entry point (algorithm=nestbo or nestbo_sub)
 configs/
   default.yaml                       # global settings
   benchmark/*.yaml                   # one config per benchmark
