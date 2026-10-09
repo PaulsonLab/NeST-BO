@@ -4,6 +4,7 @@ defaults:
 
 seed: 0
 device: "cpu"
+gd_lengthscale_scaling: false  # scale the fallback gradient step by the GP lengthscales
 
 hydra:
   job:

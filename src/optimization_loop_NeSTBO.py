@@ -32,6 +32,7 @@ class main():
         
         self.seed = config.seed
         self.device = config.device
+        self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
         self.T = config.benchmark.n_tot
         self.delta = config.benchmark.delta
         self.M = config.benchmark.M
@@ -62,7 +63,7 @@ class main():
             raise ValueError("Matrix is not square!")
         
         eigvals = torch.linalg.eigvalsh(A)  # Compute only real eigenvalues (Hermitian matrix)
-        return torch.all(eigvals >= 0)
+        return torch.all(eigvals > 0)  # strictly PD, otherwise the Newton step is undefined
         
     def move_Newton(self, gp, mean_H, mean_J, sigma = 0.1, s = 1.0,  beta = 0.8):
        
@@ -80,9 +81,10 @@ class main():
         self.params = self.params + s*d
            
     def move_GD(self, gp, mean_J, sigma = 0.1, s = 0.5,  beta = 0.5):
-        
         # do the Armijo line search
         d = -(torch.nn.functional.normalize(mean_J)).detach() # descent direction
+        if self.gd_lengthscale_scaling:
+            d = d * gp.covar_module.base_kernel.lengthscale.detach()
         
         f_current = gp.posterior(self.params).mean
         f_future = gp.posterior(self.params + s*d).mean
@@ -183,7 +185,7 @@ class main():
                 self.params
             )  # Call this to update prediction strategy of GPyTorch.
             
-            mean_J, variance_J = gp.posterior_derivative(self.params) # gradient predicted by GP
+            mean_J = gp.posterior_derivative(self.params) # gradient predicted by GP
             mean_H = gp.posterior_hessian(self.params)
             
             # IsPD or not

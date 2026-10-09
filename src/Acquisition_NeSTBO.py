@@ -104,8 +104,6 @@ class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
         D = self.model.D
         X = self.model.train_inputs[0]
         x = self.theta_i.view(-1, D)
-        idx_i = torch.arange(D)
-        idx_j = torch.arange(D)
         
         variances = []
         for theta in thetas.to(X.device):
@@ -121,11 +119,10 @@ class NewtonInformation(botorch.acquisition.AnalyticAcquisitionFunction):
             variance_d = -K_xX_dx @ K_XX_inv.to(torch.float64) @ K_xX_dx.transpose(1, 2)
                     
             A = torch.matmul(K_xX_dxdx, K_XX_inv).squeeze(0)   # (D, D, N)
-            B = K_xX_dxdx.squeeze(0).permute(2, 0, 1)          # (N, D, D)
-            variance_H = torch.tensordot(A, B, dims=([2], [0]))  # (D, D, D, D)
-                  
-            trace_H = -variance_H[idx_i[:, None], idx_j[None, :], idx_i[:, None], idx_j[None, :]].flatten()
-        
+            B = K_xX_dxdx.squeeze(0)                           # (D, D, N)
+            # sum_ij of diag of Cov[vec(H)] reduction: sum_ij H_ij K^-1 H_ij (avoids the D^4 tensor)
+            trace_H = -(A * B).sum()
+
             variances.append(torch.trace(variance_d.view(D, D)).view(1) + torch.sum(trace_H).view(1))
 
         return -torch.cat(variances, dim=0)

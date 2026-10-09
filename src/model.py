@@ -189,7 +189,7 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
         self.train_xs = torch.cat([self.unnormalize(train_x), self.train_xs.to(train_x.device)])
         self.train_ys = torch.cat([train_y, self.train_ys.to(train_x.device)])
 
-        if (self.N_max is not None) or (self.N_max != -1):
+        if (self.N_max is not None) and (self.N_max != -1):
 
             self.train_xs = self.train_xs[: self.N_max]
             self.train_ys = self.train_ys[: self.N_max]
@@ -266,23 +266,6 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
             ).transpose(1, 2)
         )
 
-    def _get_Kxx_dx2(self):
-        """Computes the analytic second derivative of the kernel K(x,x) w.r.t. x.
-
-        Args:
-            x: (n x D) Test points.
-
-        Returns:
-            (n x D x D) The second derivative of K(x,x) w.r.t. x.
-        """
-        
-        lengthscale = self.covar_module.base_kernel.lengthscale.detach()
-        # sigma_f = self.covar_module.outputscale.detach()
-        sigma_f = 1
-        return (
-            torch.eye(self.D, device=lengthscale.device) / lengthscale ** 2
-        ) * sigma_f
-       
     def _get_KxX_dxdx(self, x):
         X = self.train_inputs[0]
         n = x.shape[0]
@@ -302,25 +285,21 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
         return first_term + second_term
     
     def posterior_derivative(self, x):
-        """Computes the posterior of the derivative of the GP w.r.t. the given test
-        points x.
+        """Computes the posterior mean of the derivative of the GP w.r.t. the given
+        test points x.
 
         Args:
             x: (n x D) Test points.
 
         Returns:
-            A GPyTorchPosterior.
+            (n x D) The posterior mean of the gradient.
         """
         if self.prediction_strategy is None:
             self.posterior(x)  # Call this to update prediction strategy of GPyTorch.
         K_xX_dx = self._get_KxX_dx(x)
         mean_d = K_xX_dx @ self.get_KXX_inv() @ self.train_targets
-        variance_d = (
-            self._get_Kxx_dx2() - K_xX_dx @ self.get_KXX_inv() @ K_xX_dx.transpose(1, 2)
-        )
-        variance_d = variance_d.clamp_min(1e-9)
 
-        return mean_d, variance_d
+        return mean_d
     
     def posterior_hessian(self, x):
         

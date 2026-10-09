@@ -134,7 +134,7 @@ def increase_embedding_and_observations(
         )
 
         S_stack = torch.zeros(
-            (n_row_bins - 1, len(row) + 1), device=device, dtype=dtype
+            (n_row_bins - 1, len(row) + 1), device=S.device, dtype=dtype
         )  # submatrix to stack on S_update
 
         S_stack = S_stack.scatter_(
@@ -163,6 +163,7 @@ class main():
     
         self.seed = config.seed
         self.device = config.device
+        self.gd_lengthscale_scaling = config.gd_lengthscale_scaling
         self.T = config.benchmark.n_tot
         self.delta = config.benchmark.delta
         self.fun = hydra.utils.instantiate(config.benchmark.fn)
@@ -199,7 +200,7 @@ class main():
             raise ValueError("Matrix is not square!")
         
         eigvals = torch.linalg.eigvalsh(A)  # Compute only real eigenvalues (Hermitian matrix)
-        return torch.all(eigvals >= 0)
+        return torch.all(eigvals > 0)  # strictly PD, otherwise the Newton step is undefined
     
         
     def move_Newton(self, gp, mean_H, mean_J, sigma = 0.1, s = 1.0,  beta = 0.5):
@@ -218,9 +219,10 @@ class main():
         
         
     def move_GD(self, gp, mean_J, sigma = 0.1, s = 0.5,  beta = 0.5):
-        lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
         # do the Armijo line search
-        d = -(torch.nn.functional.normalize(mean_J)*lengthscale).detach()
+        d = -(torch.nn.functional.normalize(mean_J)).detach() # descent direction
+        if self.gd_lengthscale_scaling:
+            d = d * gp.covar_module.base_kernel.lengthscale.detach()
         
         f_current = gp.posterior(self.params).mean
         f_future = gp.posterior(self.params + s*d).mean
@@ -249,13 +251,13 @@ class main():
         
         for bo in range(self.T):
            
-            bounds = torch.tensor([[-self.delta], [self.delta]]).to(device) + self.params
+            bounds = torch.tensor([[-self.delta], [self.delta]]).to(self.device) + self.params
             bounds[bounds<-1] = -1
             bounds[bounds>1] = 1
-            bounds = bounds.to(device)
+            bounds = bounds.to(self.device)
             
             gp = DerivativeExactGPSEModel(self.state.target_dim, ard_num_dims=self.state.target_dim)
-            gp = gp.to(device)
+            gp = gp.to(self.device)
             gp.append_train_data(self.train_X, self.train_Y)
             
             gp.posterior(
@@ -312,7 +314,7 @@ class main():
                 self.params
             )  # Call this to update prediction strategy of GPyTorch.
             
-            mean_J, variance_J = gp.posterior_derivative(self.params) # gradient predicted by GP
+            mean_J = gp.posterior_derivative(self.params) # gradient predicted by GP
             mean_H = gp.posterior_hessian(self.params)
           
             
